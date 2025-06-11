@@ -1,6 +1,5 @@
-
 import { useState } from "react";
-import { TrendingUp, Heart, MessageCircle, Share2, Crown, Fire } from "lucide-react";
+import { TrendingUp, Heart, MessageCircle, Share2, Crown, Flame } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
@@ -149,7 +148,7 @@ const TrendsAndSocial = ({ isOpen, onClose }: TrendsAndSocialProps) => {
       <DialogContent className="bg-dark-card border-gray-700 text-white max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center space-x-2">
-            <Fire className="text-neon-yellow" size={24} />
+            <Flame className="text-neon-yellow" size={24} />
             <span>Trends & Community</span>
             <span className="text-xs bg-neon-purple px-2 py-1 rounded-full">PREMIUM</span>
           </DialogTitle>
@@ -190,7 +189,7 @@ const TrendsAndSocial = ({ isOpen, onClose }: TrendsAndSocialProps) => {
                     <img src={post.image} alt={post.title} className="w-full h-48 md:h-full object-cover" />
                     {post.isHot && (
                       <div className="absolute top-2 left-2 bg-red-500 text-white px-2 py-1 rounded-full text-xs font-bold flex items-center">
-                        <Fire size={12} className="mr-1" />
+                        <Flame size={12} className="mr-1" />
                         HOT
                       </div>
                     )}
