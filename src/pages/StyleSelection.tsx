@@ -11,7 +11,8 @@ const aesthetics = [
     glowColor: "#ff0080",
     icon: Zap,
     bgStart: "#ff0080",
-    bgEnd: "#8b5cf6"
+    bgEnd: "#8b5cf6",
+    image: "https://images.unsplash.com/photo-1596755389378-c31d21fd1273?w=300&h=200&fit=crop&crop=center"
   },
   {
     id: "old-money",
@@ -21,7 +22,8 @@ const aesthetics = [
     glowColor: "#d97706",
     icon: Crown,
     bgStart: "#d97706",
-    bgEnd: "#92400e"
+    bgEnd: "#92400e",
+    image: "https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=300&h=200&fit=crop&crop=center"
   },
   {
     id: "minimalist",
@@ -31,7 +33,8 @@ const aesthetics = [
     glowColor: "#6b7280",
     icon: Minimize,
     bgStart: "#6b7280",
-    bgEnd: "#374151"
+    bgEnd: "#374151",
+    image: "https://images.unsplash.com/photo-1434389677669-e08b4cac3105?w=300&h=200&fit=crop&crop=center"
   },
   {
     id: "maximalist",
@@ -41,7 +44,8 @@ const aesthetics = [
     glowColor: "#ec4899",
     icon: Palette,
     bgStart: "#ec4899",
-    bgEnd: "#f97316"
+    bgEnd: "#f97316",
+    image: "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=300&h=200&fit=crop&crop=center"
   },
   {
     id: "streetwear",
@@ -51,7 +55,8 @@ const aesthetics = [
     glowColor: "#00d4ff",
     icon: Camera,
     bgStart: "#00d4ff",
-    bgEnd: "#06b6d4"
+    bgEnd: "#06b6d4",
+    image: "https://images.unsplash.com/photo-1551698618-1dfe5d97d256?w=300&h=200&fit=crop&crop=center"
   },
   {
     id: "coquette",
@@ -61,7 +66,8 @@ const aesthetics = [
     glowColor: "#f472b6",
     icon: Sparkles,
     bgStart: "#f472b6",
-    bgEnd: "#f43f5e"
+    bgEnd: "#f43f5e",
+    image: "https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=300&h=200&fit=crop&crop=center"
   }
 ];
 
@@ -99,21 +105,45 @@ const StyleSelection = () => {
               <button
                 key={aesthetic.id}
                 onClick={() => handleAestheticSelect(aesthetic.id)}
-                className="aesthetic-button animate-bounce-in"
+                className="relative overflow-hidden rounded-2xl transition-all duration-300 transform hover:scale-105 active:scale-95 animate-bounce-in group"
                 style={{
-                  '--bg-start': aesthetic.bgStart,
-                  '--bg-end': aesthetic.bgEnd,
-                  '--glow-color': aesthetic.glowColor,
                   animationDelay: `${index * 0.1}s`
-                } as React.CSSProperties}
+                }}
               >
-                <div className="flex flex-col items-center space-y-4">
-                  <IconComponent size={40} className="text-white" />
-                  <div>
-                    <h3 className="text-2xl font-bold mb-2">{aesthetic.name}</h3>
-                    <p className="text-sm opacity-90">{aesthetic.description}</p>
-                  </div>
+                {/* Background Image */}
+                <div className="relative h-48 overflow-hidden">
+                  <img 
+                    src={aesthetic.image} 
+                    alt={aesthetic.name}
+                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                  />
+                  <div 
+                    className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent"
+                  ></div>
+                  
+                  {/* Hover Effect */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                 </div>
+
+                {/* Content Overlay */}
+                <div className="absolute inset-0 flex flex-col justify-end p-6 text-white">
+                  <div className="flex items-center space-x-3 mb-2">
+                    <IconComponent size={32} className="text-white drop-shadow-lg" />
+                    <h3 className="text-2xl font-bold drop-shadow-lg">{aesthetic.name}</h3>
+                  </div>
+                  <p className="text-sm opacity-90 drop-shadow-lg">{aesthetic.description}</p>
+                </div>
+
+                {/* Glow Effect */}
+                <div 
+                  className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                  style={{
+                    boxShadow: `0 0 30px ${aesthetic.glowColor}`
+                  }}
+                ></div>
+
+                {/* Shine Effect */}
+                <div className="absolute top-0 left-[-100%] w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-all duration-500 group-hover:left-[100%]"></div>
               </button>
             );
           })}

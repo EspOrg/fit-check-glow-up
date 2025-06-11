@@ -10,6 +10,13 @@ const UploadImage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const aesthetic = searchParams.get('aesthetic') || 'y2k';
+  
+  // Before/After comparison parameters
+  const beforeImage = searchParams.get('beforeImage');
+  const beforeScore = searchParams.get('beforeScore');
+  const beforeFeedback = searchParams.get('beforeFeedback');
+  const isImprovement = beforeImage && beforeScore && beforeFeedback;
+  
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [croppedImage, setCroppedImage] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
@@ -61,7 +68,14 @@ const UploadImage = () => {
     // Generate random score for demo
     const score = Math.floor(Math.random() * 4) + 7; // Score between 7-10
     
-    navigate(`/result?aesthetic=${aesthetic}&score=${score}&image=${encodeURIComponent(croppedImage)}`);
+    // Build URL with comparison parameters if this is an improvement attempt
+    let resultUrl = `/result?aesthetic=${aesthetic}&score=${score}&image=${encodeURIComponent(croppedImage)}`;
+    
+    if (isImprovement) {
+      resultUrl += `&beforeImage=${beforeImage}&beforeScore=${beforeScore}&beforeFeedback=${beforeFeedback}`;
+    }
+    
+    navigate(resultUrl);
   };
 
   const aestheticName = aesthetic.charAt(0).toUpperCase() + aesthetic.slice(1).replace('-', ' ');
@@ -78,12 +92,36 @@ const UploadImage = () => {
         {/* Header */}
         <div className="text-center mb-8 animate-slide-up">
           <h1 className="text-4xl md:text-5xl font-cyber font-black text-white mb-4 glow-text">
-            Upload Your Fit
+            {isImprovement ? "Upload Your Improved Fit" : "Upload Your Fit"}
           </h1>
           <p className="text-lg text-gray-300">
             Selected aesthetic: <span className="text-neon-pink font-bold">{aestheticName}</span>
           </p>
+          {isImprovement && (
+            <p className="text-sm text-neon-blue mt-2">
+              ✨ Show us how you've improved your style!
+            </p>
+          )}
         </div>
+
+        {/* Before Image Preview (if improvement) */}
+        {isImprovement && beforeImage && (
+          <div className="mb-8 animate-slide-up">
+            <h3 className="text-xl font-bold text-white mb-4 text-center">Your Previous Look</h3>
+            <div className="relative rounded-3xl overflow-hidden neon-border opacity-75">
+              <img 
+                src={decodeURIComponent(beforeImage)} 
+                alt="Previous outfit" 
+                className="w-full h-48 object-cover"
+              />
+              <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                <span className="text-white font-bold bg-black/50 px-3 py-1 rounded-full">
+                  Score: {beforeScore}/10
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Upload Area */}
         {!uploadedImage && (
@@ -93,7 +131,9 @@ const UploadImage = () => {
               className="border-2 border-dashed border-gray-600 rounded-3xl p-12 text-center cursor-pointer transition-all duration-300 hover:border-neon-pink hover:bg-gray-900/20 group"
             >
               <Camera size={80} className="mx-auto mb-6 text-gray-400 group-hover:text-neon-pink transition-colors duration-300" />
-              <h3 className="text-2xl font-bold text-white mb-2">Add Your Photo</h3>
+              <h3 className="text-2xl font-bold text-white mb-2">
+                {isImprovement ? "Add Your Improved Photo" : "Add Your Photo"}
+              </h3>
               <p className="text-gray-400">Tap to upload or take a photo</p>
             </div>
           </div>
@@ -152,12 +192,12 @@ const UploadImage = () => {
               {isLoading ? (
                 <div className="flex items-center justify-center space-x-2">
                   <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  <span>Analyzing Your Fit...</span>
+                  <span>{isImprovement ? "Analyzing Your Improvement..." : "Analyzing Your Fit..."}</span>
                 </div>
               ) : (
                 <>
                   <Sparkles className="mr-2" size={20} />
-                  Get My Style Score
+                  {isImprovement ? "Compare My Improvement" : "Get My Style Score"}
                 </>
               )}
             </Button>

@@ -1,8 +1,11 @@
 
+import { useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { RefreshCcw, Share } from "lucide-react";
+import { RefreshCcw, Share, MessageCircle, Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import AIStyleAssistant from "@/components/AIStyleAssistant";
+import BeforeAfterComparison from "@/components/BeforeAfterComparison";
 
 const ResultPage = () => {
   const navigate = useNavigate();
@@ -10,6 +13,14 @@ const ResultPage = () => {
   const aesthetic = searchParams.get('aesthetic') || 'y2k';
   const score = parseInt(searchParams.get('score') || '8');
   const imageData = searchParams.get('image');
+  
+  // Before/After comparison state
+  const beforeImage = searchParams.get('beforeImage');
+  const beforeScore = searchParams.get('beforeScore') ? parseInt(searchParams.get('beforeScore')!) : null;
+  const beforeFeedback = searchParams.get('beforeFeedback');
+  const isComparison = beforeImage && beforeScore && beforeFeedback;
+
+  const [showAIAssistant, setShowAIAssistant] = useState(false);
 
   const aestheticName = aesthetic.charAt(0).toUpperCase() + aesthetic.slice(1).replace('-', ' ');
 
@@ -52,6 +63,14 @@ const ResultPage = () => {
     return tips[aesthetic as keyof typeof tips] || tips['y2k'];
   };
 
+  const handleTryImprovement = () => {
+    if (imageData) {
+      // Store current result as "before" for comparison
+      const currentFeedback = getFeedback(score, aesthetic);
+      navigate(`/upload?aesthetic=${aesthetic}&beforeImage=${encodeURIComponent(imageData)}&beforeScore=${score}&beforeFeedback=${encodeURIComponent(currentFeedback)}`);
+    }
+  };
+
   const handleShare = async () => {
     if (navigator.share) {
       try {
@@ -73,6 +92,22 @@ const ResultPage = () => {
     navigator.clipboard.writeText(window.location.href);
     toast.success('Link copied to clipboard!');
   };
+
+  // If this is a comparison view, show the BeforeAfterComparison component
+  if (isComparison && imageData) {
+    return (
+      <BeforeAfterComparison
+        beforeImage={decodeURIComponent(beforeImage!)}
+        afterImage={decodeURIComponent(imageData)}
+        beforeScore={beforeScore!}
+        afterScore={score}
+        beforeFeedback={decodeURIComponent(beforeFeedback!)}
+        afterFeedback={getFeedback(score, aesthetic)}
+        aesthetic={aesthetic}
+        onTryAgain={handleTryImprovement}
+      />
+    );
+  }
 
   const circleCircumference = 2 * Math.PI * 90; // radius = 90
   const strokeDasharray = circleCircumference;
@@ -183,22 +218,42 @@ const ResultPage = () => {
         </div>
 
         {/* Action Buttons */}
-        <div className="flex space-x-4 animate-slide-up">
+        <div className="space-y-4 animate-slide-up">
+          {/* AI Assistant Button */}
           <Button
-            onClick={() => navigate("/style-selection")}
-            className="flex-1 bg-gradient-to-r from-neon-blue to-cyan-500 hover:from-cyan-500 hover:to-neon-blue text-white font-bold py-4 rounded-xl text-lg transition-all duration-300"
+            onClick={() => setShowAIAssistant(true)}
+            className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-pink-500 hover:to-purple-500 text-white font-bold py-4 rounded-xl text-lg transition-all duration-300"
           >
-            <RefreshCcw className="mr-2" size={20} />
-            🔄 Try Another Fit
+            <MessageCircle className="mr-2" size={20} />
+            💬 Get AI Style Suggestions
           </Button>
-          
+
+          {/* Try Improvement Button */}
           <Button
-            onClick={handleShare}
-            className="flex-1 bg-gradient-to-r from-neon-pink to-neon-purple hover:from-neon-purple hover:to-neon-pink text-white font-bold py-4 rounded-xl text-lg transition-all duration-300"
+            onClick={handleTryImprovement}
+            className="w-full bg-gradient-to-r from-neon-blue to-cyan-500 hover:from-cyan-500 hover:to-neon-blue text-white font-bold py-4 rounded-xl text-lg transition-all duration-300"
           >
-            <Share className="mr-2" size={20} />
-            📤 Share Result
+            <Camera className="mr-2" size={20} />
+            📸 Try to Improve This Look
           </Button>
+
+          <div className="flex space-x-4">
+            <Button
+              onClick={() => navigate("/style-selection")}
+              className="flex-1 bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-600 text-white font-bold py-4 rounded-xl text-lg transition-all duration-300"
+            >
+              <RefreshCcw className="mr-2" size={20} />
+              🔄 Try Another Style
+            </Button>
+            
+            <Button
+              onClick={handleShare}
+              className="flex-1 bg-gradient-to-r from-neon-pink to-neon-purple hover:from-neon-purple hover:to-neon-pink text-white font-bold py-4 rounded-xl text-lg transition-all duration-300"
+            >
+              <Share className="mr-2" size={20} />
+              📤 Share Result
+            </Button>
+          </div>
         </div>
 
         <div className="text-center mt-8">
@@ -207,6 +262,15 @@ const ResultPage = () => {
           </p>
         </div>
       </div>
+
+      {/* AI Style Assistant Modal */}
+      <AIStyleAssistant
+        isOpen={showAIAssistant}
+        onClose={() => setShowAIAssistant(false)}
+        aesthetic={aesthetic}
+        imageData={imageData || undefined}
+        currentScore={score}
+      />
     </div>
   );
 };
