@@ -1,275 +1,345 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { RefreshCcw, Share, MessageCircle, Camera } from "lucide-react";
+import { ArrowLeft, RotateCcw, MessageCircle, Crown, Star, Sparkles, Wand2, Glasses, Shirt, ShoppingBag, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import AIStyleAssistant from "@/components/AIStyleAssistant";
 import BeforeAfterComparison from "@/components/BeforeAfterComparison";
+import AIStyleAssistant from "@/components/AIStyleAssistant";
+import AIOutfitEditor from "@/components/AIOutfitEditor";
+import VirtualTryOn from "@/components/VirtualTryOn";
+import SmartCloset from "@/components/SmartCloset";
+import EnhancedAIStyleAssistant from "@/components/EnhancedAIStyleAssistant";
+import ShoppingAssistant from "@/components/ShoppingAssistant";
+import TrendsAndSocial from "@/components/TrendsAndSocial";
 
 const ResultPage = () => {
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const aesthetic = searchParams.get('aesthetic') || 'y2k';
-  const score = parseInt(searchParams.get('score') || '8');
-  const imageData = searchParams.get('image');
-  
-  // Before/After comparison state
-  const beforeImage = searchParams.get('beforeImage');
-  const beforeScore = searchParams.get('beforeScore') ? parseInt(searchParams.get('beforeScore')!) : null;
-  const beforeFeedback = searchParams.get('beforeFeedback');
-  const isComparison = beforeImage && beforeScore && beforeFeedback;
-
+  const navigate = useNavigate();
+  const [isImproving, setIsImproving] = useState(false);
+  const [showComparison, setShowComparison] = useState(false);
   const [showAIAssistant, setShowAIAssistant] = useState(false);
+  const [showOutfitEditor, setShowOutfitEditor] = useState(false);
+  const [showVirtualTryOn, setShowVirtualTryOn] = useState(false);
+  const [showSmartCloset, setShowSmartCloset] = useState(false);
+  const [showEnhancedAssistant, setShowEnhancedAssistant] = useState(false);
+  const [showShoppingAssistant, setShowShoppingAssistant] = useState(false);
+  const [showTrendsAndSocial, setShowTrendsAndSocial] = useState(false);
+  const [currentImage, setCurrentImage] = useState<string>("");
 
-  const aestheticName = aesthetic.charAt(0).toUpperCase() + aesthetic.slice(1).replace('-', ' ');
+  const aesthetic = searchParams.get('aesthetic') || 'y2k';
 
-  const getScoreColor = (score: number) => {
-    if (score >= 9) return 'from-green-400 to-emerald-500';
-    if (score >= 7) return 'from-yellow-400 to-orange-500';
-    if (score >= 5) return 'from-orange-400 to-red-500';
-    return 'from-red-400 to-red-600';
+  useEffect(() => {
+    const imageParam = searchParams.get('image');
+    if (imageParam) {
+      setCurrentImage(imageParam);
+    }
+  }, [searchParams]);
+
+  const calculateScore = (aesthetic: string) => {
+    const baseScore = Math.floor(Math.random() * 4) + 6;
+    const bonus = aesthetic === 'y2k' ? 1 : aesthetic === 'old-money' ? 0.5 : 0;
+    return Math.min(10, baseScore + bonus);
   };
 
-  const getScoreGlow = (score: number) => {
-    if (score >= 9) return '#10b981';
-    if (score >= 7) return '#f59e0b';
-    if (score >= 5) return '#f97316';
-    return '#ef4444';
-  };
+  const score = calculateScore(aesthetic);
 
   const getFeedback = (score: number, aesthetic: string) => {
-    const feedbacks = {
-      9: `Perfect ${aestheticName} execution! Your outfit captures the essence flawlessly.`,
-      8: `Strong ${aestheticName} vibes! Just a few tweaks could make this perfect.`,
-      7: `Good ${aestheticName} foundation with room for elevated details.`,
-      6: `Decent attempt at ${aestheticName}, but missing some key elements.`,
-      5: `Basic ${aestheticName} understanding, needs more authentic pieces.`
-    };
-    
-    return feedbacks[score as keyof typeof feedbacks] || feedbacks[5];
-  };
-
-  const getTips = (aesthetic: string) => {
-    const tips = {
-      'y2k': ['Add metallic accessories', 'Try low-rise bottoms', 'Include tech-wear elements'],
-      'old-money': ['Invest in quality fabrics', 'Choose neutral colors', 'Add classic accessories'],
-      'minimalist': ['Stick to basic colors', 'Focus on fit and silhouette', 'Remove unnecessary details'],
-      'maximalist': ['Mix bold patterns', 'Layer accessories', 'Embrace bright colors'],
-      'streetwear': ['Add statement sneakers', 'Include graphic elements', 'Try oversized fits'],
-      'coquette': ['Add feminine touches', 'Choose soft colors', 'Include romantic details']
-    };
-    
-    return tips[aesthetic as keyof typeof tips] || tips['y2k'];
-  };
-
-  const handleTryImprovement = () => {
-    if (imageData) {
-      // Store current result as "before" for comparison
-      const currentFeedback = getFeedback(score, aesthetic);
-      navigate(`/upload?aesthetic=${aesthetic}&beforeImage=${encodeURIComponent(imageData)}&beforeScore=${score}&beforeFeedback=${encodeURIComponent(currentFeedback)}`);
-    }
-  };
-
-  const handleShare = async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: 'My Fit Check AI Score',
-          text: `I scored ${score}/10 on ${aestheticName} aesthetic!`,
-          url: window.location.href
-        });
-      } catch (error) {
-        console.log('Error sharing:', error);
-        handleCopyLink();
-      }
+    if (score >= 9) {
+      return `Absolutely stunning! You've mastered the ${aesthetic} aesthetic perfectly. Your outfit coordination and style choices are impeccable.`;
+    } else if (score >= 7) {
+      return `Great job! You're on the right track with the ${aesthetic} vibe. A few small adjustments could make this look even more polished.`;
+    } else if (score >= 5) {
+      return `Good foundation! You understand the ${aesthetic} aesthetic, but there's room for improvement in execution and styling details.`;
     } else {
-      handleCopyLink();
+      return `This look needs some work to capture the true ${aesthetic} essence. Consider revisiting the key elements of this style.`;
     }
   };
 
-  const handleCopyLink = () => {
-    navigator.clipboard.writeText(window.location.href);
-    toast.success('Link copied to clipboard!');
+  const improveOutfit = async () => {
+    setIsImproving(true);
+    
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    
+    const newScore = Math.min(10, score + Math.floor(Math.random() * 3) + 1);
+    const newFeedback = getFeedback(newScore, aesthetic);
+    
+    const beforeData = {
+      image: currentImage,
+      score: score,
+      feedback: getFeedback(score, aesthetic)
+    };
+    
+    const afterData = {
+      image: currentImage,
+      score: newScore,
+      feedback: newFeedback
+    };
+    
+    setIsImproving(false);
+    setShowComparison(true);
+    
+    localStorage.setItem('beforeAfterData', JSON.stringify({ beforeData, afterData, aesthetic }));
   };
 
-  // If this is a comparison view, show the BeforeAfterComparison component
-  if (isComparison && imageData) {
+  const handleImageModified = (modifiedImage: string) => {
+    setCurrentImage(modifiedImage);
+    toast.success("Outfit updated with AI modifications!");
+  };
+
+  const handleClosetOutfitSelect = (outfit: any) => {
+    setCurrentImage(outfit.image);
+    toast.success(`Loaded "${outfit.label}" from your closet!`);
+  };
+
+  const getScoreColor = (score: number) => {
+    if (score >= 9) return 'text-neon-green';
+    if (score >= 7) return 'text-neon-yellow';
+    if (score >= 5) return 'text-orange-400';
+    return 'text-red-400';
+  };
+
+  const getScoreMessage = (score: number) => {
+    if (score >= 9) return "ICONIC! 👑";
+    if (score >= 7) return "SERVING LOOKS! ✨";
+    if (score >= 5) return "GETTING THERE! 💪";
+    return "WORK IN PROGRESS 🔧";
+  };
+
+  if (showComparison) {
+    const comparisonData = JSON.parse(localStorage.getItem('beforeAfterData') || '{}');
     return (
       <BeforeAfterComparison
-        beforeImage={decodeURIComponent(beforeImage!)}
-        afterImage={decodeURIComponent(imageData)}
-        beforeScore={beforeScore!}
-        afterScore={score}
-        beforeFeedback={decodeURIComponent(beforeFeedback!)}
-        afterFeedback={getFeedback(score, aesthetic)}
+        beforeImage={comparisonData.beforeData?.image || currentImage}
+        afterImage={comparisonData.afterData?.image || currentImage}
+        beforeScore={comparisonData.beforeData?.score || score}
+        afterScore={comparisonData.afterData?.score || score + 1}
+        beforeFeedback={comparisonData.beforeData?.feedback || getFeedback(score, aesthetic)}
+        afterFeedback={comparisonData.afterData?.feedback || getFeedback(score + 1, aesthetic)}
         aesthetic={aesthetic}
-        onTryAgain={handleTryImprovement}
+        onTryAgain={() => setShowComparison(false)}
       />
     );
   }
-
-  const circleCircumference = 2 * Math.PI * 90; // radius = 90
-  const strokeDasharray = circleCircumference;
-  const strokeDashoffset = circleCircumference - (score / 10) * circleCircumference;
 
   return (
     <div className="min-h-screen gradient-bg p-6 relative overflow-hidden">
       {/* Background effects */}
       <div className="absolute inset-0 overflow-hidden">
-        <div 
-          className="absolute top-20 left-20 w-60 h-60 opacity-20 rounded-full blur-3xl animate-pulse"
-          style={{ backgroundColor: getScoreGlow(score) }}
-        ></div>
+        <div className="absolute top-20 left-20 w-60 h-60 bg-neon-pink opacity-10 rounded-full blur-3xl animate-pulse"></div>
         <div className="absolute bottom-20 right-20 w-40 h-40 bg-neon-purple opacity-10 rounded-full blur-2xl animate-pulse" style={{ animationDelay: '1s' }}></div>
       </div>
 
-      <div className="max-w-2xl mx-auto relative z-10">
+      <div className="max-w-4xl mx-auto relative z-10">
         {/* Header */}
-        <div className="text-center mb-8 animate-slide-up">
-          <h1 className="text-4xl md:text-5xl font-cyber font-black text-white mb-2 glow-text">
-            Your Fit Score
+        <div className="flex items-center justify-between mb-8 animate-slide-up">
+          <Button
+            onClick={() => navigate(-1)}
+            variant="outline"
+            className="border-gray-600 hover:bg-gray-700"
+          >
+            <ArrowLeft size={16} className="mr-2" />
+            Back
+          </Button>
+          
+          <h1 className="text-3xl md:text-4xl font-cyber font-black text-white glow-text">
+            Your Style Score
           </h1>
-          <p className="text-lg text-gray-300">
-            <span className="text-neon-pink font-bold">{aestheticName}</span> Aesthetic
-          </p>
+          
+          <div className="w-20"></div>
         </div>
 
-        {/* Score Circle */}
+        {/* Score Display */}
         <div className="text-center mb-8 animate-bounce-in">
-          <div className="relative inline-block">
-            <svg width="200" height="200" className="transform -rotate-90">
-              {/* Background circle */}
-              <circle
-                cx="100"
-                cy="100"
-                r="90"
-                stroke="#374151"
-                strokeWidth="8"
-                fill="transparent"
-              />
-              {/* Progress circle */}
-              <circle
-                cx="100"
-                cy="100"
-                r="90"
-                stroke="url(#scoreGradient)"
-                strokeWidth="8"
-                fill="transparent"
-                strokeDasharray={strokeDasharray}
-                strokeDashoffset={strokeDashoffset}
-                className="transition-all duration-2000 ease-out"
-                strokeLinecap="round"
-                style={{
-                  filter: `drop-shadow(0 0 10px ${getScoreGlow(score)})`
-                }}
-              />
-              <defs>
-                <linearGradient id="scoreGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor={score >= 9 ? '#10b981' : score >= 7 ? '#f59e0b' : '#ef4444'} />
-                  <stop offset="100%" stopColor={score >= 9 ? '#059669' : score >= 7 ? '#d97706' : '#dc2626'} />
-                </linearGradient>
-              </defs>
-            </svg>
-            
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="text-center">
-                <div className={`text-6xl font-black bg-gradient-to-r ${getScoreColor(score)} bg-clip-text text-transparent glow-text`}>
-                  {score}
-                </div>
-                <div className="text-gray-300 text-lg font-medium">/ 10</div>
-              </div>
+          <div className="inline-block bg-dark-card rounded-3xl p-8 neon-border">
+            <div className={`text-6xl md:text-8xl font-black ${getScoreColor(score)} glow-text mb-4`}>
+              {score}
+            </div>
+            <div className="text-lg text-gray-300 mb-2">out of 10</div>
+            <div className="text-2xl font-bold text-neon-pink">
+              {getScoreMessage(score)}
             </div>
           </div>
         </div>
 
         {/* Image Display */}
-        {imageData && (
+        {currentImage && (
           <div className="mb-8 animate-slide-up">
-            <div className="relative rounded-3xl overflow-hidden neon-border">
+            <div className="relative max-w-md mx-auto rounded-3xl overflow-hidden neon-border">
               <img 
-                src={decodeURIComponent(imageData)} 
+                src={currentImage} 
                 alt="Your outfit" 
-                className="w-full h-64 object-cover"
+                className="w-full h-96 object-cover"
               />
+              <div className="absolute top-4 left-4 bg-black/70 backdrop-blur rounded-full px-3 py-1">
+                <span className={`font-bold ${getScoreColor(score)}`}>
+                  {score}/10
+                </span>
+              </div>
             </div>
           </div>
         )}
 
         {/* Feedback */}
-        <div className="bg-dark-card rounded-3xl p-6 mb-6 neon-border animate-slide-up">
-          <h3 className="text-2xl font-bold text-white mb-4 text-center">AI Feedback</h3>
-          <p className="text-gray-300 text-lg text-center leading-relaxed">
+        <div className="bg-dark-card rounded-3xl p-6 mb-8 neon-border animate-slide-up">
+          <h3 className="text-xl font-bold text-white mb-4">Style Analysis</h3>
+          <p className="text-gray-300 leading-relaxed">
             {getFeedback(score, aesthetic)}
           </p>
         </div>
 
-        {/* Tips */}
-        <div className="bg-dark-card rounded-3xl p-6 mb-8 neon-border animate-slide-up">
-          <h3 className="text-xl font-bold text-white mb-4">Style Tips</h3>
-          <ul className="space-y-2">
-            {getTips(aesthetic).map((tip, index) => (
-              <li key={index} className="text-gray-300 flex items-center">
-                <span className="text-neon-pink mr-2">•</span>
-                {tip}
-              </li>
-            ))}
-          </ul>
+        {/* Premium Features */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+          <Button
+            onClick={() => setShowOutfitEditor(true)}
+            className="h-auto p-6 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 flex flex-col items-center space-y-2"
+          >
+            <Wand2 size={32} />
+            <span className="font-bold">AI Outfit Editor</span>
+            <span className="text-xs opacity-80">Visual modifications</span>
+            <span className="text-xs bg-white/20 px-2 py-1 rounded-full">PREMIUM</span>
+          </Button>
+
+          <Button
+            onClick={() => setShowVirtualTryOn(true)}
+            className="h-auto p-6 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 flex flex-col items-center space-y-2"
+          >
+            <Glasses size={32} />
+            <span className="font-bold">Virtual Try-On</span>
+            <span className="text-xs opacity-80">AR accessories</span>
+            <span className="text-xs bg-white/20 px-2 py-1 rounded-full">PREMIUM</span>
+          </Button>
+
+          <Button
+            onClick={() => setShowSmartCloset(true)}
+            className="h-auto p-6 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 flex flex-col items-center space-y-2"
+          >
+            <Shirt size={32} />
+            <span className="font-bold">Smart Closet</span>
+            <span className="text-xs opacity-80">Save & organize</span>
+            <span className="text-xs bg-white/20 px-2 py-1 rounded-full">PREMIUM</span>
+          </Button>
+
+          <Button
+            onClick={() => setShowEnhancedAssistant(true)}
+            className="h-auto p-6 bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-700 hover:to-rose-700 flex flex-col items-center space-y-2"
+          >
+            <Sparkles size={32} />
+            <span className="font-bold">Style Bestie</span>
+            <span className="text-xs opacity-80">Gen Z AI chat</span>
+            <span className="text-xs bg-white/20 px-2 py-1 rounded-full">PREMIUM</span>
+          </Button>
+
+          <Button
+            onClick={() => setShowShoppingAssistant(true)}
+            className="h-auto p-6 bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-700 hover:to-orange-700 flex flex-col items-center space-y-2"
+          >
+            <ShoppingBag size={32} />
+            <span className="font-bold">Shop The Look</span>
+            <span className="text-xs opacity-80">Curated picks</span>
+            <span className="text-xs bg-white/20 px-2 py-1 rounded-full">PREMIUM</span>
+          </Button>
+
+          <Button
+            onClick={() => setShowTrendsAndSocial(true)}
+            className="h-auto p-6 bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 flex flex-col items-center space-y-2"
+          >
+            <TrendingUp size={32} />
+            <span className="font-bold">Trends & Social</span>
+            <span className="text-xs opacity-80">Hot or Not voting</span>
+            <span className="text-xs bg-white/20 px-2 py-1 rounded-full">PREMIUM</span>
+          </Button>
         </div>
 
-        {/* Action Buttons */}
-        <div className="space-y-4 animate-slide-up">
-          {/* AI Assistant Button */}
+        {/* Basic Actions */}
+        <div className="flex flex-col sm:flex-row gap-4 animate-slide-up">
+          <Button
+            onClick={improveOutfit}
+            disabled={isImproving}
+            className="flex-1 bg-gradient-to-r from-neon-pink to-neon-purple hover:from-neon-purple hover:to-neon-pink text-white font-bold py-4 text-lg transition-all duration-300 animate-neon-pulse"
+          >
+            {isImproving ? (
+              <>
+                <div className="animate-spin mr-2">⚡</div>
+                AI is working...
+              </>
+            ) : (
+              <>
+                <Crown className="mr-2" size={20} />
+                Improve My Style
+              </>
+            )}
+          </Button>
+          
           <Button
             onClick={() => setShowAIAssistant(true)}
-            className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-pink-500 hover:to-purple-500 text-white font-bold py-4 rounded-xl text-lg transition-all duration-300"
+            variant="outline"
+            className="flex-1 border-gray-600 hover:bg-gray-700 py-4 text-lg"
           >
             <MessageCircle className="mr-2" size={20} />
-            💬 Get AI Style Suggestions
+            Ask AI Stylist
           </Button>
-
-          {/* Try Improvement Button */}
+          
           <Button
-            onClick={handleTryImprovement}
-            className="w-full bg-gradient-to-r from-neon-blue to-cyan-500 hover:from-cyan-500 hover:to-neon-blue text-white font-bold py-4 rounded-xl text-lg transition-all duration-300"
+            onClick={() => navigate('/upload?aesthetic=' + aesthetic)}
+            variant="outline"
+            className="border-gray-600 hover:bg-gray-700 py-4 px-6"
           >
-            <Camera className="mr-2" size={20} />
-            📸 Try to Improve This Look
+            <RotateCcw size={20} />
           </Button>
-
-          <div className="flex space-x-4">
-            <Button
-              onClick={() => navigate("/style-selection")}
-              className="flex-1 bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-600 text-white font-bold py-4 rounded-xl text-lg transition-all duration-300"
-            >
-              <RefreshCcw className="mr-2" size={20} />
-              🔄 Try Another Style
-            </Button>
-            
-            <Button
-              onClick={handleShare}
-              className="flex-1 bg-gradient-to-r from-neon-pink to-neon-purple hover:from-neon-purple hover:to-neon-pink text-white font-bold py-4 rounded-xl text-lg transition-all duration-300"
-            >
-              <Share className="mr-2" size={20} />
-              📤 Share Result
-            </Button>
-          </div>
-        </div>
-
-        <div className="text-center mt-8">
-          <p className="text-gray-400 text-sm">
-            💫 Keep experimenting with your style journey!
-          </p>
         </div>
       </div>
 
-      {/* AI Style Assistant Modal */}
+      {/* Modal Components */}
       <AIStyleAssistant
         isOpen={showAIAssistant}
         onClose={() => setShowAIAssistant(false)}
         aesthetic={aesthetic}
-        imageData={imageData || undefined}
+        imageData={currentImage}
         currentScore={score}
+      />
+
+      <AIOutfitEditor
+        isOpen={showOutfitEditor}
+        onClose={() => setShowOutfitEditor(false)}
+        originalImage={currentImage}
+        aesthetic={aesthetic}
+        onImageModified={handleImageModified}
+      />
+
+      <VirtualTryOn
+        isOpen={showVirtualTryOn}
+        onClose={() => setShowVirtualTryOn(false)}
+        originalImage={currentImage}
+        aesthetic={aesthetic}
+        onImageUpdated={handleImageModified}
+      />
+
+      <SmartCloset
+        isOpen={showSmartCloset}
+        onClose={() => setShowSmartCloset(false)}
+        currentImage={currentImage}
+        currentAesthetic={aesthetic}
+        currentScore={score}
+        onOutfitSelect={handleClosetOutfitSelect}
+      />
+
+      <EnhancedAIStyleAssistant
+        isOpen={showEnhancedAssistant}
+        onClose={() => setShowEnhancedAssistant(false)}
+        aesthetic={aesthetic}
+        imageData={currentImage}
+        currentScore={score}
+      />
+
+      <ShoppingAssistant
+        isOpen={showShoppingAssistant}
+        onClose={() => setShowShoppingAssistant(false)}
+        aesthetic={aesthetic}
+      />
+
+      <TrendsAndSocial
+        isOpen={showTrendsAndSocial}
+        onClose={() => setShowTrendsAndSocial(false)}
       />
     </div>
   );
