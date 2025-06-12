@@ -1,6 +1,6 @@
-
-import { ArrowRight, Trophy, TrendingUp } from "lucide-react";
+import { ArrowRight, Trophy, TrendingUp, RotateCcw, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
 
 interface BeforeAfterComparisonProps {
   beforeImage: string;
@@ -23,6 +23,7 @@ const BeforeAfterComparison = ({
   aesthetic,
   onTryAgain
 }: BeforeAfterComparisonProps) => {
+  const navigate = useNavigate();
   const scoreImproved = afterScore > beforeScore;
   const scoreDifference = afterScore - beforeScore;
   
@@ -34,6 +35,21 @@ const BeforeAfterComparison = ({
   };
 
   const aestheticName = aesthetic.charAt(0).toUpperCase() + aesthetic.slice(1).replace('-', ' ');
+
+  const handleStartOver = () => {
+    navigate('/style-selection');
+  };
+
+  const handleImproveMore = () => {
+    // Navigate to upload page with current image as before image for next comparison
+    const params = new URLSearchParams({
+      aesthetic,
+      beforeImage: encodeURIComponent(afterImage),
+      beforeScore: afterScore.toString(),
+      beforeFeedback: encodeURIComponent(afterFeedback)
+    });
+    navigate(`/upload?${params.toString()}`);
+  };
 
   return (
     <div className="min-h-screen gradient-bg p-6 relative overflow-hidden">
@@ -150,18 +166,45 @@ const BeforeAfterComparison = ({
           </div>
         </div>
 
-        {/* Action Button */}
-        <div className="text-center animate-slide-up">
-          <Button
-            onClick={onTryAgain}
-            className="bg-gradient-to-r from-neon-pink to-neon-purple hover:from-neon-purple hover:to-neon-pink text-white font-bold py-4 px-8 rounded-xl text-lg transition-all duration-300 animate-neon-pulse"
-          >
-            Try Another Improvement
-          </Button>
+        {/* Clear Action Options */}
+        <div className="text-center animate-slide-up mb-8">
+          <h2 className="text-2xl font-bold text-white mb-6">What would you like to do next?</h2>
           
-          <p className="text-gray-400 text-sm mt-4">
-            Keep refining your style until you achieve the perfect look!
-          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+            {/* Option A: Start Over */}
+            <div className="bg-dark-card rounded-3xl p-8 neon-border hover:bg-gray-800/50 transition-all duration-300">
+              <div className="text-center">
+                <RotateCcw className="text-neon-blue mx-auto mb-4" size={48} />
+                <h3 className="text-xl font-bold text-white mb-4">Option A: Start Fresh</h3>
+                <p className="text-gray-300 mb-6">Try a completely new outfit with a different aesthetic or style approach.</p>
+                <Button
+                  onClick={handleStartOver}
+                  className="w-full bg-gradient-to-r from-neon-blue to-cyan-500 hover:from-cyan-500 hover:to-neon-blue text-white font-bold py-3 text-lg transition-all duration-300"
+                >
+                  Choose New Aesthetic
+                </Button>
+              </div>
+            </div>
+
+            {/* Option B: Keep Improving */}
+            <div className="bg-dark-card rounded-3xl p-8 neon-border hover:bg-gray-800/50 transition-all duration-300">
+              <div className="text-center">
+                <Sparkles className="text-neon-pink mx-auto mb-4" size={48} />
+                <h3 className="text-xl font-bold text-white mb-4">Option B: Keep Improving</h3>
+                <p className="text-gray-300 mb-6">Upload another photo showing more improvements based on AI suggestions.</p>
+                <Button
+                  onClick={handleImproveMore}
+                  className="w-full bg-gradient-to-r from-neon-pink to-neon-purple hover:from-neon-purple hover:to-neon-pink text-white font-bold py-3 text-lg transition-all duration-300"
+                >
+                  Improve This Look More
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="text-center text-gray-400 text-sm">
+          <p>Your style journey is unique - choose the path that feels right for you! ✨</p>
         </div>
       </div>
     </div>

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, RotateCcw, MessageCircle, Crown, Star, Sparkles, Wand2, Glasses, Shirt, ShoppingBag, TrendingUp } from "lucide-react";
@@ -31,6 +30,10 @@ const ResultPage = () => {
   const [styleAnalysis, setStyleAnalysis] = useState<any>(null);
 
   const aesthetic = searchParams.get('aesthetic') || 'y2k';
+  const beforeImage = searchParams.get('beforeImage');
+  const beforeScore = searchParams.get('beforeScore');
+  const beforeFeedback = searchParams.get('beforeFeedback');
+  const isImprovement = beforeImage && beforeScore && beforeFeedback;
 
   useEffect(() => {
     const imageParam = searchParams.get('image');
@@ -44,48 +47,71 @@ const ResultPage = () => {
     setIsAnalyzing(true);
     try {
       const analysisService = StyleAnalysisService.getInstance();
-      const analysis = await analysisService.analyzeStyle(imageUrl, aesthetic);
+      
+      let analysis;
+      if (isImprovement) {
+        // This is an improvement evaluation
+        const originalSuggestions = JSON.parse(localStorage.getItem('originalSuggestions') || '[]');
+        analysis = await analysisService.evaluateImprovement(
+          decodeURIComponent(beforeImage!),
+          imageUrl,
+          originalSuggestions,
+          aesthetic
+        );
+        
+        // Show comparison immediately for improvements
+        setTimeout(() => {
+          setShowComparison(true);
+          localStorage.setItem('beforeAfterData', JSON.stringify({
+            beforeData: {
+              image: decodeURIComponent(beforeImage!),
+              score: parseInt(beforeScore!),
+              feedback: decodeURIComponent(beforeFeedback!)
+            },
+            afterData: {
+              image: imageUrl,
+              score: analysis.overallScore,
+              feedback: analysis.feedback
+            },
+            aesthetic
+          }));
+        }, 2000);
+      } else {
+        // Regular style analysis
+        analysis = await analysisService.analyzeStyle(imageUrl, aesthetic);
+        // Store suggestions for potential future improvement
+        localStorage.setItem('originalSuggestions', JSON.stringify(analysis.suggestions));
+      }
+      
       setStyleAnalysis(analysis);
     } catch (error) {
       console.error('Style analysis failed:', error);
-      toast.error('Style analysis failed. Using fallback scoring.');
-      // Fallback to original scoring
+      toast.error('Style analysis failed. Please try again.');
+      // Fallback to basic analysis
       setStyleAnalysis({
         overallScore: Math.floor(Math.random() * 4) + 6,
-        feedback: `Great ${aesthetic} foundation! A few small adjustments could make this look even more polished.`,
-        suggestions: ['Try adding complementary accessories', 'Consider adjusting the color palette', 'Experiment with different fits']
+        feedback: `Great ${aesthetic} foundation! Here are some specific improvements to try.`,
+        suggestions: [
+          'Try a more fitted silhouette',
+          'Add complementary accessories', 
+          'Consider color coordination',
+          'Experiment with layering'
+        ]
       });
     } finally {
       setIsAnalyzing(false);
     }
   };
 
-  const improveOutfit = async () => {
-    setIsImproving(true);
-    
-    await new Promise(resolve => setTimeout(resolve, 3000));
-    
-    // Re-analyze with improvements
-    const analysisService = StyleAnalysisService.getInstance();
-    const newAnalysis = await analysisService.analyzeStyle(currentImage, aesthetic);
-    const improvedScore = Math.min(10, newAnalysis.overallScore + Math.floor(Math.random() * 2) + 1);
-    
-    const beforeData = {
-      image: currentImage,
-      score: styleAnalysis?.overallScore || 6,
-      feedback: styleAnalysis?.feedback || 'Good foundation for improvement'
-    };
-    
-    const afterData = {
-      image: currentImage,
-      score: improvedScore,
-      feedback: `Excellent improvement! Your ${aesthetic} style is now perfectly balanced with great attention to detail.`
-    };
-    
-    setIsImproving(false);
-    setShowComparison(true);
-    
-    localStorage.setItem('beforeAfterData', JSON.stringify({ beforeData, afterData, aesthetic }));
+  const handleStartImprovement = () => {
+    // Navigate to upload with current analysis as before data
+    const params = new URLSearchParams({
+      aesthetic,
+      beforeImage: encodeURIComponent(currentImage),
+      beforeScore: styleAnalysis.overallScore.toString(),
+      beforeFeedback: encodeURIComponent(styleAnalysis.feedback)
+    });
+    navigate(`/upload?${params.toString()}`);
   };
 
   const handleImageModified = (modifiedImage: string) => {
@@ -151,7 +177,7 @@ const ResultPage = () => {
           </Button>
           
           <h1 className="text-3xl md:text-4xl font-cyber font-black text-white glow-text">
-            Your Style Score
+            {isImprovement ? "Improvement Results" : "Your Style Score"}
           </h1>
           
           <div className="w-20"></div>
@@ -163,7 +189,9 @@ const ResultPage = () => {
             {isAnalyzing ? (
               <div className="flex flex-col items-center">
                 <Sparkles className="animate-spin text-neon-pink mb-4" size={48} />
-                <div className="text-2xl font-bold text-neon-pink mb-2">Analyzing Style...</div>
+                <div className="text-2xl font-bold text-neon-pink mb-2">
+                  {isImprovement ? "Evaluating Improvement..." : "Analyzing Style..."}
+                </div>
                 <div className="text-sm text-gray-400">Using AI vision to assess your look</div>
               </div>
             ) : (
@@ -198,29 +226,27 @@ const ResultPage = () => {
           </div>
         )}
 
-        {/* Detailed Analysis */}
+        {/* Enhanced AI Analysis with Specific Suggestions */}
         {styleAnalysis && !isAnalyzing && (
           <div className="bg-dark-card rounded-3xl p-6 mb-8 neon-border animate-slide-up">
-            <h3 className="text-xl font-bold text-white mb-4">AI Style Analysis</h3>
-            <p className="text-gray-300 leading-relaxed mb-4">
+            <h3 className="text-xl font-bold text-white mb-4">AI Style Tutor</h3>
+            <p className="text-gray-300 leading-relaxed mb-6">
               {styleAnalysis.feedback}
             </p>
             
-            {styleAnalysis.improvements && styleAnalysis.improvements.length > 0 && (
-              <div className="space-y-3">
-                <h4 className="text-lg font-bold text-neon-pink">Personalized Suggestions:</h4>
-                {styleAnalysis.improvements.map((improvement: any, index: number) => (
-                  <div key={index} className="flex items-start space-x-3 bg-gray-800/50 p-3 rounded-lg">
-                    <div className={`w-2 h-2 rounded-full mt-2 ${
-                      improvement.impact === 'high' ? 'bg-red-400' : 
-                      improvement.impact === 'medium' ? 'bg-yellow-400' : 'bg-green-400'
-                    }`}></div>
-                    <div>
-                      <p className="text-white font-semibold">{improvement.suggestion}</p>
-                      <p className="text-gray-400 text-sm">{improvement.reason}</p>
+            {styleAnalysis.suggestions && styleAnalysis.suggestions.length > 0 && (
+              <div className="space-y-4">
+                <h4 className="text-lg font-bold text-neon-pink">Specific Action Steps:</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {styleAnalysis.suggestions.map((suggestion: string, index: number) => (
+                    <div key={index} className="flex items-start space-x-3 bg-gray-800/50 p-4 rounded-lg border border-gray-700">
+                      <div className="w-6 h-6 bg-neon-pink rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <span className="text-white text-sm font-bold">{index + 1}</span>
+                      </div>
+                      <p className="text-white font-medium">{suggestion}</p>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -229,22 +255,22 @@ const ResultPage = () => {
         {/* Premium Features */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
           <Button
+            onClick={() => setShowVirtualTryOn(true)}
+            className="h-auto p-6 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 flex flex-col items-center space-y-2"
+          >
+            <Glasses size={32} />
+            <span className="font-bold">Virtual Try-On</span>
+            <span className="text-xs opacity-80">Preview AI suggestions</span>
+            <span className="text-xs bg-white/20 px-2 py-1 rounded-full">PRIORITY</span>
+          </Button>
+
+          <Button
             onClick={() => setShowOutfitEditor(true)}
             className="h-auto p-6 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 flex flex-col items-center space-y-2"
           >
             <Wand2 size={32} />
             <span className="font-bold">AI Outfit Editor</span>
             <span className="text-xs opacity-80">Visual modifications</span>
-            <span className="text-xs bg-white/20 px-2 py-1 rounded-full">PREMIUM</span>
-          </Button>
-
-          <Button
-            onClick={() => setShowVirtualTryOn(true)}
-            className="h-auto p-6 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 flex flex-col items-center space-y-2"
-          >
-            <Glasses size={32} />
-            <span className="font-bold">Virtual Try-On</span>
-            <span className="text-xs opacity-80">AR accessories</span>
             <span className="text-xs bg-white/20 px-2 py-1 rounded-full">PREMIUM</span>
           </Button>
 
@@ -289,24 +315,15 @@ const ResultPage = () => {
           </Button>
         </div>
 
-        {/* Basic Actions */}
+        {/* Clear Action Buttons */}
         <div className="flex flex-col sm:flex-row gap-4 animate-slide-up">
           <Button
-            onClick={improveOutfit}
-            disabled={isImproving || isAnalyzing}
+            onClick={handleStartImprovement}
+            disabled={isAnalyzing}
             className="flex-1 bg-gradient-to-r from-neon-pink to-neon-purple hover:from-neon-purple hover:to-neon-pink text-white font-bold py-4 text-lg transition-all duration-300 animate-neon-pulse"
           >
-            {isImproving ? (
-              <>
-                <div className="animate-spin mr-2">⚡</div>
-                AI is improving your style...
-              </>
-            ) : (
-              <>
-                <Crown className="mr-2" size={20} />
-                Improve My Style
-              </>
-            )}
+            <Crown className="mr-2" size={20} />
+            Improve This Outfit
           </Button>
           
           <Button
@@ -319,7 +336,7 @@ const ResultPage = () => {
           </Button>
           
           <Button
-            onClick={() => navigate('/upload?aesthetic=' + aesthetic)}
+            onClick={() => navigate('/style-selection')}
             variant="outline"
             className="border-gray-600 hover:bg-gray-700 py-4 px-6"
           >

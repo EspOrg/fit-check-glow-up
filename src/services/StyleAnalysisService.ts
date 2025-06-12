@@ -1,3 +1,4 @@
+import { OpenAIStyleService } from './OpenAIStyleService';
 
 interface StyleAnalysis {
   overallScore: number;
@@ -27,6 +28,11 @@ interface StyleFeatures {
 
 export class StyleAnalysisService {
   private static instance: StyleAnalysisService;
+  private openAIService: OpenAIStyleService;
+
+  constructor() {
+    this.openAIService = OpenAIStyleService.getInstance();
+  }
 
   static getInstance(): StyleAnalysisService {
     if (!StyleAnalysisService.instance) {
@@ -36,6 +42,77 @@ export class StyleAnalysisService {
   }
 
   async analyzeStyle(imageUrl: string, aesthetic: string, userPreferences?: any): Promise<StyleAnalysis> {
+    try {
+      // Try OpenAI analysis first
+      console.log('Using OpenAI for style analysis...');
+      const aiAnalysis = await this.openAIService.analyzeStyleWithAI(imageUrl, aesthetic);
+      
+      return {
+        overallScore: aiAnalysis.overallScore,
+        fitScore: aiAnalysis.improvementAreas.fit,
+        colorScore: aiAnalysis.improvementAreas.color,
+        accessoryScore: aiAnalysis.improvementAreas.accessories,
+        trendScore: aiAnalysis.improvementAreas.layering,
+        feedback: aiAnalysis.feedback,
+        suggestions: aiAnalysis.specificSuggestions,
+        improvements: this.convertSuggestionsToImprovements(aiAnalysis.specificSuggestions)
+      };
+    } catch (error) {
+      console.warn('OpenAI analysis failed, falling back to local analysis:', error);
+      return this.fallbackAnalysis(imageUrl, aesthetic, userPreferences);
+    }
+  }
+
+  async evaluateImprovement(
+    beforeImage: string, 
+    afterImage: string, 
+    originalSuggestions: string[], 
+    aesthetic: string
+  ): Promise<StyleAnalysis> {
+    try {
+      console.log('Using OpenAI for improvement evaluation...');
+      const aiAnalysis = await this.openAIService.evaluateImprovement(
+        beforeImage, 
+        afterImage, 
+        originalSuggestions, 
+        aesthetic
+      );
+      
+      return {
+        overallScore: aiAnalysis.overallScore,
+        fitScore: aiAnalysis.improvementAreas.fit,
+        colorScore: aiAnalysis.improvementAreas.color,
+        accessoryScore: aiAnalysis.improvementAreas.accessories,
+        trendScore: aiAnalysis.improvementAreas.layering,
+        feedback: aiAnalysis.feedback,
+        suggestions: aiAnalysis.specificSuggestions,
+        improvements: this.convertSuggestionsToImprovements(aiAnalysis.specificSuggestions)
+      };
+    } catch (error) {
+      console.warn('OpenAI improvement evaluation failed, using fallback:', error);
+      return this.fallbackAnalysis(afterImage, aesthetic);
+    }
+  }
+
+  private convertSuggestionsToImprovements(suggestions: string[]): StyleImprovement[] {
+    return suggestions.map((suggestion, index) => ({
+      category: this.categorizeSuggestion(suggestion),
+      suggestion,
+      impact: index < 2 ? 'high' : 'medium',
+      reason: 'AI-recommended improvement based on style analysis'
+    }));
+  }
+
+  private categorizeSuggestion(suggestion: string): 'color' | 'accessory' | 'fit' | 'style' {
+    const lower = suggestion.toLowerCase();
+    if (lower.includes('color') || lower.includes('shade') || lower.includes('tone')) return 'color';
+    if (lower.includes('accessory') || lower.includes('jewelry') || lower.includes('bag') || lower.includes('watch')) return 'accessory';
+    if (lower.includes('fit') || lower.includes('size') || lower.includes('tight') || lower.includes('loose')) return 'fit';
+    return 'style';
+  }
+
+  // Fallback analysis for when OpenAI is unavailable
+  private async fallbackAnalysis(imageUrl: string, aesthetic: string, userPreferences?: any): Promise<StyleAnalysis> {
     // Extract visual features for consistent rating
     const features = await this.extractVisualFeatures(imageUrl);
     
@@ -277,48 +354,48 @@ export class StyleAnalysisService {
 
   private getColorSuggestion(aesthetic: string, features: StyleFeatures): string {
     const suggestions = {
-      'y2k': 'Try adding metallic silver accents or holographic details to enhance the futuristic vibe',
-      'old-money': 'Replace bright colors with neutral tones like cream, navy, or camel for timeless elegance',
-      'streetwear': 'Add a pop of neon color or stick to urban neutrals like black, white, and grey',
-      'minimalist': 'Simplify to a monochromatic palette - try all black or varying shades of one color',
-      'maximalist': 'Mix bold, contrasting colors - try pairing bright pink with emerald green',
-      'coquette': 'Incorporate soft pastels like blush pink, lavender, or cream for romantic femininity'
+      'y2k': 'Add metallic silver accessories or holographic details',
+      'old-money': 'Switch to neutral tones like cream, navy, or camel',
+      'streetwear': 'Add a pop of neon color or stick to urban neutrals',
+      'minimalist': 'Try a monochromatic palette in black or white',
+      'maximalist': 'Mix bold contrasting colors like bright pink with emerald green',
+      'coquette': 'Incorporate soft pastels like blush pink or lavender'
     };
     return suggestions[aesthetic as keyof typeof suggestions] || 'Consider a more cohesive color palette';
   }
 
   private getAccessorySuggestion(aesthetic: string, features: StyleFeatures): string {
     const suggestions = {
-      'y2k': 'Add chrome jewelry, platform boots, or a holographic bag for authentic Y2K vibes',
-      'old-money': 'Try a classic gold watch, pearl necklace, or structured leather handbag',
-      'streetwear': 'Consider chunky sneakers, a baseball cap, or a statement chain',
-      'minimalist': 'Keep it simple with a delicate watch or single piece of geometric jewelry',
-      'maximalist': 'Layer multiple statement pieces - bold earrings, colorful scarves, and patterned bags',
-      'coquette': 'Add delicate jewelry like layered necklaces, hair bows, or vintage-inspired pieces'
+      'y2k': 'Add chrome jewelry or platform boots',
+      'old-money': 'Try a classic gold watch or pearl necklace',
+      'streetwear': 'Add chunky sneakers or a baseball cap',
+      'minimalist': 'Keep it simple with a delicate watch',
+      'maximalist': 'Layer multiple statement pieces and colorful scarves',
+      'coquette': 'Add delicate jewelry like layered necklaces or hair bows'
     };
     return suggestions[aesthetic as keyof typeof suggestions] || 'Consider adding complementary accessories';
   }
 
   private getFitSuggestion(aesthetic: string, features: StyleFeatures): string {
     const suggestions = {
-      'y2k': 'Try low-rise jeans with a fitted crop top, or an oversized metallic jacket',
-      'old-money': 'Opt for well-tailored pieces - a structured blazer or perfectly fitted trousers',
-      'streetwear': 'Go oversized with hoodies and baggy jeans, or try fitted athleisure',
-      'minimalist': 'Choose clean, structured silhouettes that skim your body without being tight',
-      'maximalist': 'Mix different fits - pair oversized tops with fitted bottoms or vice versa',
-      'coquette': 'Try fitted bodices with flowy skirts, or cropped cardigans with high-waisted bottoms'
+      'y2k': 'Try low-rise jeans with a fitted crop top',
+      'old-money': 'Opt for well-tailored pieces like a structured blazer',
+      'streetwear': 'Go oversized with hoodies and baggy jeans',
+      'minimalist': 'Choose clean, structured silhouettes',
+      'maximalist': 'Mix different fits - oversized tops with fitted bottoms',
+      'coquette': 'Try fitted bodices with flowy skirts'
     };
     return suggestions[aesthetic as keyof typeof suggestions] || 'Consider adjusting the fit for better proportion';
   }
 
   private getStyleSuggestion(aesthetic: string, features: StyleFeatures): string {
     const suggestions = {
-      'y2k': 'Add tech-wear elements like cargo pants with straps or LED accessories',
-      'old-money': 'Layer a cashmere sweater under a blazer for sophisticated texture',
-      'streetwear': 'Try layering a long-sleeve shirt under a graphic tee for urban style',
-      'minimalist': 'Focus on quality fabrics and clean lines - less is truly more',
-      'maximalist': 'Don\'t be afraid to mix patterns - try stripes with florals or polka dots',
-      'coquette': 'Add romantic details like lace trim, ruffles, or vintage-inspired buttons'
+      'y2k': 'Add tech-wear elements like cargo pants with straps',
+      'old-money': 'Layer a cashmere sweater under a blazer',
+      'streetwear': 'Try layering a long-sleeve shirt under a graphic tee',
+      'minimalist': 'Focus on quality fabrics and clean lines',
+      'maximalist': 'Mix patterns - try stripes with florals',
+      'coquette': 'Add romantic details like lace trim or ruffles'
     };
     return suggestions[aesthetic as keyof typeof suggestions] || 'Consider enhancing your style with signature elements';
   }

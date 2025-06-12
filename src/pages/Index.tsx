@@ -9,7 +9,7 @@ const Index = () => {
   useEffect(() => {
     const timer = setTimeout(() => {
       navigate("/style-selection");
-    }, 3000);
+    }, 10000); // Changed from 3000 to 10000 (10 seconds)
 
     return () => clearTimeout(timer);
   }, [navigate]);
