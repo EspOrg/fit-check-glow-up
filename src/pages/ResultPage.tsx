@@ -368,6 +368,7 @@ const ResultPage = () => {
         originalImage={currentImage}
         aesthetic={aesthetic}
         onImageUpdated={handleImageModified}
+        aiSuggestions={styleAnalysis?.suggestions || []}
       />
 
       <SmartCloset

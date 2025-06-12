@@ -1,4 +1,3 @@
-
 interface OpenAIResponse {
   choices: Array<{
     message: {
@@ -41,7 +40,7 @@ export class OpenAIStyleService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'gpt-4o',
+          model: 'gpt-4.1-2025-04-14',
           messages: [
             {
               role: 'system',
@@ -85,17 +84,17 @@ RESPONSE FORMAT:
 1. Overall Score: [X/10]
 2. Brief Assessment: [2-3 sentences about the overall look]
 3. Specific Suggestions (actionable bullet points):
-   • [Specific item to add/change]
-   • [Specific fit adjustment]
-   • [Specific color/accessory recommendation]
-   • [Specific styling technique]
+   • [Specific item to add/change like "metallic crop top" or "denim jacket"]
+   • [Specific fit adjustment like "try high-waisted jeans"]
+   • [Specific color/accessory recommendation like "add silver jewelry"]
+   • [Specific styling technique like "layer a white tee under blazer"]
 4. Improvement Areas:
    - Fit: [X/10]
    - Color: [X/10] 
    - Accessories: [X/10]
    - Layering: [X/10]
 
-Be specific and actionable. Instead of "add accessories," say "add a silver chain necklace" or "try brown leather boots."`;
+Be specific with actual clothing items and brands when possible. Instead of "add accessories," say "try a silver chain necklace" or "add brown leather boots."`;
   }
 
   private parseAIResponse(analysis: string, aesthetic: string): StyleAnalysisResult {
