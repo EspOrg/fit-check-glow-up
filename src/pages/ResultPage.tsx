@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, RotateCcw, MessageCircle, Crown, Star, Sparkles, Wand2, Glasses, Shirt, ShoppingBag, TrendingUp } from "lucide-react";
@@ -11,11 +12,13 @@ import SmartCloset from "@/components/SmartCloset";
 import EnhancedAIStyleAssistant from "@/components/EnhancedAIStyleAssistant";
 import ShoppingAssistant from "@/components/ShoppingAssistant";
 import TrendsAndSocial from "@/components/TrendsAndSocial";
+import { StyleAnalysisService } from "@/services/StyleAnalysisService";
 
 const ResultPage = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [isImproving, setIsImproving] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(true);
   const [showComparison, setShowComparison] = useState(false);
   const [showAIAssistant, setShowAIAssistant] = useState(false);
   const [showOutfitEditor, setShowOutfitEditor] = useState(false);
@@ -25,6 +28,7 @@ const ResultPage = () => {
   const [showShoppingAssistant, setShowShoppingAssistant] = useState(false);
   const [showTrendsAndSocial, setShowTrendsAndSocial] = useState(false);
   const [currentImage, setCurrentImage] = useState<string>("");
+  const [styleAnalysis, setStyleAnalysis] = useState<any>(null);
 
   const aesthetic = searchParams.get('aesthetic') || 'y2k';
 
@@ -32,26 +36,27 @@ const ResultPage = () => {
     const imageParam = searchParams.get('image');
     if (imageParam) {
       setCurrentImage(imageParam);
+      analyzeStyle(imageParam);
     }
-  }, [searchParams]);
+  }, [searchParams, aesthetic]);
 
-  const calculateScore = (aesthetic: string) => {
-    const baseScore = Math.floor(Math.random() * 4) + 6;
-    const bonus = aesthetic === 'y2k' ? 1 : aesthetic === 'old-money' ? 0.5 : 0;
-    return Math.min(10, baseScore + bonus);
-  };
-
-  const score = calculateScore(aesthetic);
-
-  const getFeedback = (score: number, aesthetic: string) => {
-    if (score >= 9) {
-      return `Absolutely stunning! You've mastered the ${aesthetic} aesthetic perfectly. Your outfit coordination and style choices are impeccable.`;
-    } else if (score >= 7) {
-      return `Great job! You're on the right track with the ${aesthetic} vibe. A few small adjustments could make this look even more polished.`;
-    } else if (score >= 5) {
-      return `Good foundation! You understand the ${aesthetic} aesthetic, but there's room for improvement in execution and styling details.`;
-    } else {
-      return `This look needs some work to capture the true ${aesthetic} essence. Consider revisiting the key elements of this style.`;
+  const analyzeStyle = async (imageUrl: string) => {
+    setIsAnalyzing(true);
+    try {
+      const analysisService = StyleAnalysisService.getInstance();
+      const analysis = await analysisService.analyzeStyle(imageUrl, aesthetic);
+      setStyleAnalysis(analysis);
+    } catch (error) {
+      console.error('Style analysis failed:', error);
+      toast.error('Style analysis failed. Using fallback scoring.');
+      // Fallback to original scoring
+      setStyleAnalysis({
+        overallScore: Math.floor(Math.random() * 4) + 6,
+        feedback: `Great ${aesthetic} foundation! A few small adjustments could make this look even more polished.`,
+        suggestions: ['Try adding complementary accessories', 'Consider adjusting the color palette', 'Experiment with different fits']
+      });
+    } finally {
+      setIsAnalyzing(false);
     }
   };
 
@@ -60,19 +65,21 @@ const ResultPage = () => {
     
     await new Promise(resolve => setTimeout(resolve, 3000));
     
-    const newScore = Math.min(10, score + Math.floor(Math.random() * 3) + 1);
-    const newFeedback = getFeedback(newScore, aesthetic);
+    // Re-analyze with improvements
+    const analysisService = StyleAnalysisService.getInstance();
+    const newAnalysis = await analysisService.analyzeStyle(currentImage, aesthetic);
+    const improvedScore = Math.min(10, newAnalysis.overallScore + Math.floor(Math.random() * 2) + 1);
     
     const beforeData = {
       image: currentImage,
-      score: score,
-      feedback: getFeedback(score, aesthetic)
+      score: styleAnalysis?.overallScore || 6,
+      feedback: styleAnalysis?.feedback || 'Good foundation for improvement'
     };
     
     const afterData = {
       image: currentImage,
-      score: newScore,
-      feedback: newFeedback
+      score: improvedScore,
+      feedback: `Excellent improvement! Your ${aesthetic} style is now perfectly balanced with great attention to detail.`
     };
     
     setIsImproving(false);
@@ -83,11 +90,13 @@ const ResultPage = () => {
 
   const handleImageModified = (modifiedImage: string) => {
     setCurrentImage(modifiedImage);
+    analyzeStyle(modifiedImage);
     toast.success("Outfit updated with AI modifications!");
   };
 
   const handleClosetOutfitSelect = (outfit: any) => {
     setCurrentImage(outfit.image);
+    analyzeStyle(outfit.image);
     toast.success(`Loaded "${outfit.label}" from your closet!`);
   };
 
@@ -111,10 +120,10 @@ const ResultPage = () => {
       <BeforeAfterComparison
         beforeImage={comparisonData.beforeData?.image || currentImage}
         afterImage={comparisonData.afterData?.image || currentImage}
-        beforeScore={comparisonData.beforeData?.score || score}
-        afterScore={comparisonData.afterData?.score || score + 1}
-        beforeFeedback={comparisonData.beforeData?.feedback || getFeedback(score, aesthetic)}
-        afterFeedback={comparisonData.afterData?.feedback || getFeedback(score + 1, aesthetic)}
+        beforeScore={comparisonData.beforeData?.score || styleAnalysis?.overallScore || 6}
+        afterScore={comparisonData.afterData?.score || (styleAnalysis?.overallScore || 6) + 1}
+        beforeFeedback={comparisonData.beforeData?.feedback || styleAnalysis?.feedback || 'Good foundation'}
+        afterFeedback={comparisonData.afterData?.feedback || 'Excellent improvement!'}
         aesthetic={aesthetic}
         onTryAgain={() => setShowComparison(false)}
       />
@@ -151,13 +160,23 @@ const ResultPage = () => {
         {/* Score Display */}
         <div className="text-center mb-8 animate-bounce-in">
           <div className="inline-block bg-dark-card rounded-3xl p-8 neon-border">
-            <div className={`text-6xl md:text-8xl font-black ${getScoreColor(score)} glow-text mb-4`}>
-              {score}
-            </div>
-            <div className="text-lg text-gray-300 mb-2">out of 10</div>
-            <div className="text-2xl font-bold text-neon-pink">
-              {getScoreMessage(score)}
-            </div>
+            {isAnalyzing ? (
+              <div className="flex flex-col items-center">
+                <Sparkles className="animate-spin text-neon-pink mb-4" size={48} />
+                <div className="text-2xl font-bold text-neon-pink mb-2">Analyzing Style...</div>
+                <div className="text-sm text-gray-400">Using AI vision to assess your look</div>
+              </div>
+            ) : (
+              <>
+                <div className={`text-6xl md:text-8xl font-black ${getScoreColor(styleAnalysis?.overallScore || 6)} glow-text mb-4`}>
+                  {styleAnalysis?.overallScore || 6}
+                </div>
+                <div className="text-lg text-gray-300 mb-2">out of 10</div>
+                <div className="text-2xl font-bold text-neon-pink">
+                  {getScoreMessage(styleAnalysis?.overallScore || 6)}
+                </div>
+              </>
+            )}
           </div>
         </div>
 
@@ -171,21 +190,41 @@ const ResultPage = () => {
                 className="w-full h-96 object-cover"
               />
               <div className="absolute top-4 left-4 bg-black/70 backdrop-blur rounded-full px-3 py-1">
-                <span className={`font-bold ${getScoreColor(score)}`}>
-                  {score}/10
+                <span className={`font-bold ${getScoreColor(styleAnalysis?.overallScore || 6)}`}>
+                  {styleAnalysis?.overallScore || 6}/10
                 </span>
               </div>
             </div>
           </div>
         )}
 
-        {/* Feedback */}
-        <div className="bg-dark-card rounded-3xl p-6 mb-8 neon-border animate-slide-up">
-          <h3 className="text-xl font-bold text-white mb-4">Style Analysis</h3>
-          <p className="text-gray-300 leading-relaxed">
-            {getFeedback(score, aesthetic)}
-          </p>
-        </div>
+        {/* Detailed Analysis */}
+        {styleAnalysis && !isAnalyzing && (
+          <div className="bg-dark-card rounded-3xl p-6 mb-8 neon-border animate-slide-up">
+            <h3 className="text-xl font-bold text-white mb-4">AI Style Analysis</h3>
+            <p className="text-gray-300 leading-relaxed mb-4">
+              {styleAnalysis.feedback}
+            </p>
+            
+            {styleAnalysis.improvements && styleAnalysis.improvements.length > 0 && (
+              <div className="space-y-3">
+                <h4 className="text-lg font-bold text-neon-pink">Personalized Suggestions:</h4>
+                {styleAnalysis.improvements.map((improvement: any, index: number) => (
+                  <div key={index} className="flex items-start space-x-3 bg-gray-800/50 p-3 rounded-lg">
+                    <div className={`w-2 h-2 rounded-full mt-2 ${
+                      improvement.impact === 'high' ? 'bg-red-400' : 
+                      improvement.impact === 'medium' ? 'bg-yellow-400' : 'bg-green-400'
+                    }`}></div>
+                    <div>
+                      <p className="text-white font-semibold">{improvement.suggestion}</p>
+                      <p className="text-gray-400 text-sm">{improvement.reason}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Premium Features */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
@@ -254,13 +293,13 @@ const ResultPage = () => {
         <div className="flex flex-col sm:flex-row gap-4 animate-slide-up">
           <Button
             onClick={improveOutfit}
-            disabled={isImproving}
+            disabled={isImproving || isAnalyzing}
             className="flex-1 bg-gradient-to-r from-neon-pink to-neon-purple hover:from-neon-purple hover:to-neon-pink text-white font-bold py-4 text-lg transition-all duration-300 animate-neon-pulse"
           >
             {isImproving ? (
               <>
                 <div className="animate-spin mr-2">⚡</div>
-                AI is working...
+                AI is improving your style...
               </>
             ) : (
               <>
@@ -271,12 +310,12 @@ const ResultPage = () => {
           </Button>
           
           <Button
-            onClick={() => setShowAIAssistant(true)}
+            onClick={() => setShowEnhancedAssistant(true)}
             variant="outline"
             className="flex-1 border-gray-600 hover:bg-gray-700 py-4 text-lg"
           >
             <MessageCircle className="mr-2" size={20} />
-            Ask AI Stylist
+            Chat with Style AI
           </Button>
           
           <Button
@@ -295,7 +334,7 @@ const ResultPage = () => {
         onClose={() => setShowAIAssistant(false)}
         aesthetic={aesthetic}
         imageData={currentImage}
-        currentScore={score}
+        currentScore={styleAnalysis?.overallScore}
       />
 
       <AIOutfitEditor
@@ -319,7 +358,7 @@ const ResultPage = () => {
         onClose={() => setShowSmartCloset(false)}
         currentImage={currentImage}
         currentAesthetic={aesthetic}
-        currentScore={score}
+        currentScore={styleAnalysis?.overallScore}
         onOutfitSelect={handleClosetOutfitSelect}
       />
 
@@ -328,7 +367,7 @@ const ResultPage = () => {
         onClose={() => setShowEnhancedAssistant(false)}
         aesthetic={aesthetic}
         imageData={currentImage}
-        currentScore={score}
+        currentScore={styleAnalysis?.overallScore}
       />
 
       <ShoppingAssistant
