@@ -80,7 +80,7 @@ const VirtualTryOn = ({
       toast.info('Loading virtual clothing items...');
       
       const imagePromises = clothingItems.map(item => {
-        return new Promise((resolve) => {
+        return new Promise<{ name: string; image: HTMLImageElement | null }>((resolve) => {
           const img = new Image();
           img.crossOrigin = "anonymous";
           img.src = item.imageUrl;
@@ -94,9 +94,8 @@ const VirtualTryOn = ({
 
       const loadedImagesResults = await Promise.all(imagePromises);
       const imagesMap = loadedImagesResults.reduce((acc, result) => {
-        const loaded = result as { name: string; image: HTMLImageElement | null };
-        if (loaded && loaded.image) {
-          acc[loaded.name] = loaded.image;
+        if (result && result.image) {
+          acc[result.name] = result.image;
         }
         return acc;
       }, {} as { [key: string]: HTMLImageElement });
@@ -210,7 +209,7 @@ const VirtualTryOn = ({
     setIsLiveOverlay(true);
     toast.success('Live clothing overlay started! 👕✨');
 
-    const clothingItem = getClothingItems().find(item => item.name === selectedClothingItem);
+    const clothingItem = clothingItems.find(item => item.name === selectedClothingItem);
     if (!clothingItem) return;
 
     const renderOverlay = () => {
@@ -272,7 +271,7 @@ const VirtualTryOn = ({
 
     // Apply clothing overlay if selected
     if (selectedClothingItem) {
-      const clothingItem = getClothingItems().find(item => item.name === selectedClothingItem);
+      const clothingItem = clothingItems.find(item => item.name === selectedClothingItem);
       if (clothingItem) {
         drawClothingOverlay(ctx, canvas, clothingItem);
       }
@@ -311,7 +310,7 @@ const VirtualTryOn = ({
         ctx.drawImage(img, 0, 0);
         
         // Apply clothing overlay
-        const clothingItem = getClothingItems().find(item => item.name === selectedClothingItem);
+        const clothingItem = clothingItems.find(item => item.name === selectedClothingItem);
         if (clothingItem) {
           drawClothingOverlay(ctx, canvas, clothingItem);
         }
@@ -343,7 +342,7 @@ const VirtualTryOn = ({
             canvas.height = img.height;
             ctx.drawImage(img, 0, 0);
             
-            const clothingItem = getClothingItems().find(item => item.name === selectedClothingItem);
+            const clothingItem = clothingItems.find(item => item.name === selectedClothingItem);
             if (clothingItem) {
               drawClothingOverlay(ctx, canvas, clothingItem);
             }
