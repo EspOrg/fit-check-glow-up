@@ -1,3 +1,5 @@
+import { supabase } from "@/integrations/supabase/client";
+
 interface OpenAIResponse {
   choices: Array<{
     message: {
@@ -20,7 +22,6 @@ interface StyleAnalysisResult {
 
 export class OpenAIStyleService {
   private static instance: OpenAIStyleService;
-  private apiKey = 'sk-proj-Gk7kKjY7hVyxkBU4KvObT3BlbkFJhE7kOGAe6TrHEYxr4Zy4A';
 
   static getInstance(): OpenAIStyleService {
     if (!OpenAIStyleService.instance) {
@@ -31,70 +32,22 @@ export class OpenAIStyleService {
 
   async analyzeStyleWithAI(imageUrl: string, aesthetic: string): Promise<StyleAnalysisResult> {
     try {
-      const prompt = this.buildStyleAnalysisPrompt(aesthetic);
-      
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'gpt-4.1-2025-04-14',
-          messages: [
-            {
-              role: 'system',
-              content: prompt
-            },
-            {
-              role: 'user',
-              content: `Analyze this ${aesthetic} style outfit and provide a detailed assessment with specific, actionable suggestions. Image URL: ${imageUrl}`
-            }
-          ],
-          max_tokens: 800,
-          temperature: 0.3
-        })
+      const { data, error } = await supabase.functions.invoke('analyze-style', {
+        body: {
+          type: 'analyze',
+          imageUrl,
+          aesthetic,
+        }
       });
 
-      if (!response.ok) {
-        throw new Error(`OpenAI API error: ${response.status}`);
-      }
+      if (error) throw error;
 
-      const data: OpenAIResponse = await response.json();
-      const analysis = data.choices[0].message.content;
-      
+      const { analysis } = data;
       return this.parseAIResponse(analysis, aesthetic);
     } catch (error) {
       console.error('OpenAI Style Analysis failed:', error);
       throw error;
     }
-  }
-
-  private buildStyleAnalysisPrompt(aesthetic: string): string {
-    return `You are an expert fashion stylist specializing in ${aesthetic} aesthetic. Analyze outfits based on these specific criteria:
-
-SCORING CRITERIA (1-10):
-- Fit (30%): How well clothes fit the body, proportion, silhouette
-- Color Harmony (25%): Color coordination, palette cohesion, contrast
-- Accessories (20%): Appropriate accessories for the aesthetic, balance
-- Layering (15%): Effective use of layers, texture mixing
-- Aesthetic Alignment (10%): How well it matches ${aesthetic} style principles
-
-RESPONSE FORMAT:
-1. Overall Score: [X/10]
-2. Brief Assessment: [2-3 sentences about the overall look]
-3. Specific Suggestions (actionable bullet points):
-   • [Specific item to add/change like "metallic crop top" or "denim jacket"]
-   • [Specific fit adjustment like "try high-waisted jeans"]
-   • [Specific color/accessory recommendation like "add silver jewelry"]
-   • [Specific styling technique like "layer a white tee under blazer"]
-4. Improvement Areas:
-   - Fit: [X/10]
-   - Color: [X/10] 
-   - Accessories: [X/10]
-   - Layering: [X/10]
-
-Be specific with actual clothing items and brands when possible. Instead of "add accessories," say "try a silver chain necklace" or "add brown leather boots."`;
   }
 
   private parseAIResponse(analysis: string, aesthetic: string): StyleAnalysisResult {
@@ -138,46 +91,19 @@ Be specific with actual clothing items and brands when possible. Instead of "add
     aesthetic: string
   ): Promise<StyleAnalysisResult> {
     try {
-      const prompt = `You are evaluating style improvement. The user was given these specific suggestions: ${originalSuggestions.join(', ')}. 
-
-Compare the before and after images and rate how well they implemented the suggestions. Score based on:
-1. How many suggestions were followed (40%)
-2. Overall style improvement (30%)
-3. Aesthetic alignment with ${aesthetic} (20%)
-4. Execution quality (10%)
-
-Provide the same format as style analysis but focus on improvement and suggestion implementation.`;
-
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o',
-          messages: [
-            {
-              role: 'system',
-              content: prompt
-            },
-            {
-              role: 'user',
-              content: `Evaluate improvement from before image: ${beforeImage} to after image: ${afterImage}`
-            }
-          ],
-          max_tokens: 600,
-          temperature: 0.2
-        })
+      const { data, error } = await supabase.functions.invoke('analyze-style', {
+        body: {
+          type: 'evaluate',
+          beforeImage,
+          afterImage,
+          originalSuggestions,
+          aesthetic,
+        }
       });
 
-      if (!response.ok) {
-        throw new Error(`OpenAI API error: ${response.status}`);
-      }
+      if (error) throw error;
 
-      const data: OpenAIResponse = await response.json();
-      const analysis = data.choices[0].message.content;
-      
+      const { analysis } = data;
       return this.parseAIResponse(analysis, aesthetic);
     } catch (error) {
       console.error('OpenAI Improvement Evaluation failed:', error);
