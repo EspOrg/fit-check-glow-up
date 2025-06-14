@@ -70,7 +70,7 @@ const VirtualTryOn = ({
     
     return itemsForAesthetic.map(item => ({
         ...item,
-        imageUrl: `/overlays/${aestheticKey}/${item.type}/${item.overlay}.png`
+        imageUrl: `https://placehold.co/256x256/${item.color.substring(1)}/FFFFFF.png?text=${encodeURIComponent(item.name)}`
     }));
   }, [aesthetic]);
 
