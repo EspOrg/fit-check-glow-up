@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect } from "react";
-import { Camera, Upload, Wand2, RotateCcw, Download, Sparkles } from "lucide-react";
+import { useState, useRef, useEffect, useMemo } from "react";
+import { Camera, Upload, Wand2, RotateCcw, Download, Sparkles, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
@@ -28,6 +28,8 @@ const VirtualTryOn = ({
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [isLiveOverlay, setIsLiveOverlay] = useState(false);
+  const [overlayImages, setOverlayImages] = useState<{ [key: string]: HTMLImageElement }>({});
+  const [areOverlaysLoading, setAreOverlaysLoading] = useState(true);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -35,133 +37,83 @@ const VirtualTryOn = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const animationFrameRef = useRef<number>();
 
-  // Clothing items with better overlay data
-  const getClothingItems = () => {
+  const clothingItems = useMemo(() => {
     const baseItems = {
       y2k: [
-        { 
-          name: 'Metallic Crop Top', 
-          type: 'tops',
-          color: '#ff0080',
-          overlay: 'crop-top',
-          position: { x: 0.25, y: 0.3, width: 0.5, height: 0.25 }
-        },
-        { 
-          name: 'Low-Rise Jeans', 
-          type: 'bottoms',
-          color: '#0066ff',
-          overlay: 'jeans',
-          position: { x: 0.2, y: 0.55, width: 0.6, height: 0.4 }
-        },
-        { 
-          name: 'Platform Sneakers', 
-          type: 'shoes',
-          color: '#ff6600',
-          overlay: 'sneakers',
-          position: { x: 0.15, y: 0.85, width: 0.7, height: 0.15 }
-        },
-        { 
-          name: 'Butterfly Accessories', 
-          type: 'accessories',
-          color: '#ff66ff',
-          overlay: 'accessories',
-          position: { x: 0.1, y: 0.1, width: 0.8, height: 0.2 }
-        }
+        { name: 'Metallic Crop Top', type: 'tops', color: '#ff0080', overlay: 'crop-top', position: { x: 0.25, y: 0.3, width: 0.5, height: 0.25 }},
+        { name: 'Low-Rise Jeans', type: 'bottoms', color: '#0066ff', overlay: 'jeans', position: { x: 0.2, y: 0.55, width: 0.6, height: 0.4 }},
+        { name: 'Platform Sneakers', type: 'shoes', color: '#ff6600', overlay: 'sneakers', position: { x: 0.15, y: 0.85, width: 0.7, height: 0.15 }},
+        { name: 'Butterfly Accessories', type: 'accessories', color: '#ff66ff', overlay: 'accessories', position: { x: 0.1, y: 0.1, width: 0.8, height: 0.2 }},
       ],
       'old-money': [
-        { 
-          name: 'Cashmere Sweater', 
-          type: 'tops',
-          color: '#8b4513',
-          overlay: 'sweater',
-          position: { x: 0.2, y: 0.25, width: 0.6, height: 0.35 }
-        },
-        { 
-          name: 'Tailored Trousers', 
-          type: 'bottoms',
-          color: '#2f4f4f',
-          overlay: 'trousers',
-          position: { x: 0.25, y: 0.6, width: 0.5, height: 0.35 }
-        },
-        { 
-          name: 'Loafers', 
-          type: 'shoes',
-          color: '#654321',
-          overlay: 'loafers',
-          position: { x: 0.2, y: 0.9, width: 0.6, height: 0.1 }
-        },
-        { 
-          name: 'Pearl Necklace', 
-          type: 'accessories',
-          color: '#f8f8ff',
-          overlay: 'pearls',
-          position: { x: 0.35, y: 0.22, width: 0.3, height: 0.08 }
-        }
+        { name: 'Cashmere Sweater', type: 'tops', color: '#8b4513', overlay: 'sweater', position: { x: 0.2, y: 0.25, width: 0.6, height: 0.35 }},
+        { name: 'Tailored Trousers', type: 'bottoms', color: '#2f4f4f', overlay: 'trousers', position: { x: 0.25, y: 0.6, width: 0.5, height: 0.35 }},
+        { name: 'Loafers', type: 'shoes', color: '#654321', overlay: 'loafers', position: { x: 0.2, y: 0.9, width: 0.6, height: 0.1 }},
+        { name: 'Pearl Necklace', type: 'accessories', color: '#f8f8ff', overlay: 'pearls', position: { x: 0.35, y: 0.22, width: 0.3, height: 0.08 }},
       ],
       streetwear: [
-        { 
-          name: 'Oversized Hoodie', 
-          type: 'tops',
-          color: '#333333',
-          overlay: 'hoodie',
-          position: { x: 0.15, y: 0.2, width: 0.7, height: 0.4 }
-        },
-        { 
-          name: 'Cargo Pants', 
-          type: 'bottoms',
-          color: '#556b2f',
-          overlay: 'cargo',
-          position: { x: 0.2, y: 0.6, width: 0.6, height: 0.35 }
-        },
-        { 
-          name: 'High-Top Sneakers', 
-          type: 'shoes',
-          color: '#ff4500',
-          overlay: 'hightops',
-          position: { x: 0.15, y: 0.85, width: 0.7, height: 0.15 }
-        },
-        { 
-          name: 'Chain Necklace', 
-          type: 'accessories',
-          color: '#ffd700',
-          overlay: 'chain',
-          position: { x: 0.35, y: 0.25, width: 0.3, height: 0.15 }
-        }
+        { name: 'Oversized Hoodie', type: 'tops', color: '#333333', overlay: 'hoodie', position: { x: 0.15, y: 0.2, width: 0.7, height: 0.4 }},
+        { name: 'Cargo Pants', type: 'bottoms', color: '#556b2f', overlay: 'cargo', position: { x: 0.2, y: 0.6, width: 0.6, height: 0.35 }},
+        { name: 'High-Top Sneakers', type: 'shoes', color: '#ff4500', overlay: 'hightops', position: { x: 0.15, y: 0.85, width: 0.7, height: 0.15 }},
+        { name: 'Chain Necklace', type: 'accessories', color: '#ffd700', overlay: 'chain', position: { x: 0.35, y: 0.25, width: 0.3, height: 0.15 }},
       ],
       coquette: [
-        { 
-          name: 'Lace Blouse', 
-          type: 'tops',
-          color: '#ffb6c1',
-          overlay: 'blouse',
-          position: { x: 0.25, y: 0.3, width: 0.5, height: 0.3 }
-        },
-        { 
-          name: 'Mini Skirt', 
-          type: 'bottoms',
-          color: '#ff69b4',
-          overlay: 'skirt',
-          position: { x: 0.3, y: 0.6, width: 0.4, height: 0.2 }
-        },
-        { 
-          name: 'Mary Jane Shoes', 
-          type: 'shoes',
-          color: '#8b0000',
-          overlay: 'maryjanes',
-          position: { x: 0.25, y: 0.9, width: 0.5, height: 0.1 }
-        },
-        { 
-          name: 'Bow Hair Clip', 
-          type: 'accessories',
-          color: '#ff1493',
-          overlay: 'bow',
-          position: { x: 0.4, y: 0.05, width: 0.2, height: 0.1 }
-        }
+        { name: 'Lace Blouse', type: 'tops', color: '#ffb6c1', overlay: 'blouse', position: { x: 0.25, y: 0.3, width: 0.5, height: 0.3 }},
+        { name: 'Mini Skirt', type: 'bottoms', color: '#ff69b4', overlay: 'skirt', position: { x: 0.3, y: 0.6, width: 0.4, height: 0.2 }},
+        { name: 'Mary Jane Shoes', type: 'shoes', color: '#8b0000', overlay: 'maryjanes', position: { x: 0.25, y: 0.9, width: 0.5, height: 0.1 }},
+        { name: 'Bow Hair Clip', type: 'accessories', color: '#ff1493', overlay: 'bow', position: { x: 0.4, y: 0.05, width: 0.2, height: 0.1 }},
       ]
     };
 
-    return baseItems[aesthetic as keyof typeof baseItems] || baseItems.y2k;
-  };
+    const aestheticKey = aesthetic as keyof typeof baseItems;
+    const itemsForAesthetic = baseItems[aestheticKey] || baseItems.y2k;
+    
+    return itemsForAesthetic.map(item => ({
+        ...item,
+        imageUrl: `/overlays/${aestheticKey}/${item.type}/${item.overlay}.png`
+    }));
+  }, [aesthetic]);
+
+  useEffect(() => {
+    const loadImages = async () => {
+      setAreOverlaysLoading(true);
+      toast.info('Loading virtual clothing items...');
+      
+      const imagePromises = clothingItems.map(item => {
+        return new Promise((resolve) => {
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          img.src = item.imageUrl;
+          img.onload = () => resolve({ name: item.name, image: img });
+          img.onerror = () => {
+            console.warn(`Could not load overlay image: ${item.imageUrl}`);
+            resolve({ name: item.name, image: null }); 
+          };
+        });
+      });
+
+      const loadedImagesResults = await Promise.all(imagePromises);
+      const imagesMap = loadedImagesResults.reduce((acc, result) => {
+        const loaded = result as { name: string; image: HTMLImageElement | null };
+        if (loaded && loaded.image) {
+          acc[loaded.name] = loaded.image;
+        }
+        return acc;
+      }, {} as { [key: string]: HTMLImageElement });
+
+      setOverlayImages(imagesMap);
+      setAreOverlaysLoading(false);
+      if (Object.keys(imagesMap).length > 0) {
+        toast.success('Clothing items are ready to try on!');
+      } else {
+        toast.error('Could not load any clothing items. Please check the console for errors.');
+      }
+    };
+
+    if (clothingItems.length > 0) {
+      loadImages();
+    }
+  }, [clothingItems]);
 
   const startCamera = async () => {
     try {
@@ -223,88 +175,30 @@ const VirtualTryOn = ({
   };
 
   const drawClothingOverlay = (ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, clothingItem: any) => {
-    const { position, color, name } = clothingItem;
+    const overlayImage = overlayImages[clothingItem.name];
+    if (!overlayImage) {
+        console.warn(`Overlay image for ${clothingItem.name} not available.`);
+        // Simple fallback visualization
+        ctx.fillStyle = 'rgba(255, 0, 255, 0.2)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.font = '16px Arial';
+        ctx.fillStyle = 'white';
+        ctx.textAlign = 'center';
+        ctx.fillText(`Overlay for "${clothingItem.name}" not available.`, canvas.width / 2, canvas.height / 2);
+        return;
+    }
+
+    const { position } = clothingItem;
     
-    // Calculate actual positions
     const x = canvas.width * position.x;
     const y = canvas.height * position.y;
     const width = canvas.width * position.width;
     const height = canvas.height * position.height;
 
-    // Set blend mode for realistic overlay
-    ctx.globalCompositeOperation = 'multiply';
-    ctx.globalAlpha = 0.7;
-
-    // Create gradient for more realistic clothing appearance
-    const gradient = ctx.createLinearGradient(x, y, x + width, y + height);
-    gradient.addColorStop(0, color);
-    gradient.addColorStop(0.5, color + 'cc');
-    gradient.addColorStop(1, color + '99');
-
-    ctx.fillStyle = gradient;
-    
-    // Draw different shapes based on clothing type
-    if (clothingItem.type === 'tops') {
-      // Draw top/shirt shape
-      ctx.beginPath();
-      ctx.roundRect(x, y, width, height, 10);
-      ctx.fill();
-      
-      // Add some detail lines
-      ctx.globalCompositeOperation = 'source-over';
-      ctx.globalAlpha = 0.3;
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 2;
-      ctx.stroke();
-    } else if (clothingItem.type === 'bottoms') {
-      // Draw pants/skirt shape
-      ctx.beginPath();
-      if (name.includes('Skirt')) {
-        // A-line skirt shape
-        ctx.moveTo(x + width * 0.2, y);
-        ctx.lineTo(x + width * 0.8, y);
-        ctx.lineTo(x + width, y + height);
-        ctx.lineTo(x, y + height);
-        ctx.closePath();
-      } else {
-        // Pants shape (two legs)
-        ctx.roundRect(x, y, width * 0.45, height, 5);
-        ctx.roundRect(x + width * 0.55, y, width * 0.45, height, 5);
-      }
-      ctx.fill();
-    } else if (clothingItem.type === 'shoes') {
-      // Draw shoes
-      ctx.beginPath();
-      ctx.ellipse(x + width * 0.25, y + height * 0.5, width * 0.2, height * 0.3, 0, 0, 2 * Math.PI);
-      ctx.ellipse(x + width * 0.75, y + height * 0.5, width * 0.2, height * 0.3, 0, 0, 2 * Math.PI);
-      ctx.fill();
-    } else if (clothingItem.type === 'accessories') {
-      // Draw accessories
-      ctx.globalAlpha = 0.8;
-      if (name.includes('Chain') || name.includes('Pearl')) {
-        // Necklace
-        ctx.beginPath();
-        ctx.arc(x + width * 0.5, y + height * 0.5, width * 0.4, 0, Math.PI);
-        ctx.lineWidth = 8;
-        ctx.strokeStyle = color;
-        ctx.stroke();
-      } else {
-        // Other accessories
-        ctx.fillRect(x, y, width, height);
-      }
-    }
-
-    // Reset composite operation
     ctx.globalCompositeOperation = 'source-over';
     ctx.globalAlpha = 1;
 
-    // Add item label
-    ctx.font = '14px Arial';
-    ctx.fillStyle = 'white';
-    ctx.strokeStyle = 'black';
-    ctx.lineWidth = 2;
-    ctx.strokeText(name, x + 5, y - 5);
-    ctx.fillText(name, x + 5, y - 5);
+    ctx.drawImage(overlayImage, x, y, width, height);
   };
 
   const startLiveOverlay = () => {
@@ -497,8 +391,6 @@ const VirtualTryOn = ({
     }
   }, [selectedClothingItem, isLiveOverlay, isCameraReady]);
 
-  const clothingItems = getClothingItems();
-
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="bg-dark-card border-gray-700 text-white max-w-6xl max-h-[90vh] overflow-y-auto">
@@ -531,17 +423,24 @@ const VirtualTryOn = ({
             {/* Clothing Selection */}
             <div>
               <h3 className="text-lg font-bold mb-3">Try On These Items</h3>
-              <div className="grid grid-cols-2 gap-3">
+              {areOverlaysLoading && (
+                <div className="flex items-center justify-center p-4 bg-gray-800 rounded-lg text-white">
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  <span>Loading Outfits...</span>
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-3 mt-2">
                 {clothingItems.map((item, index) => (
                   <Button
                     key={index}
                     onClick={() => setSelectedClothingItem(item.name)}
                     variant={selectedClothingItem === item.name ? "default" : "outline"}
-                    className={`p-4 h-auto flex flex-col items-center space-y-2 ${
+                    disabled={areOverlaysLoading || !overlayImages[item.name]}
+                    className={`p-4 h-auto flex flex-col items-center space-y-2 relative ${
                       selectedClothingItem === item.name 
                         ? 'bg-neon-pink border-neon-pink' 
                         : 'bg-gray-800 border-gray-600 hover:bg-gray-700'
-                    }`}
+                    } disabled:opacity-50 disabled:cursor-not-allowed`}
                   >
                     <div 
                       className="w-12 h-12 rounded-lg flex items-center justify-center"
@@ -550,6 +449,11 @@ const VirtualTryOn = ({
                       <Wand2 size={16} style={{ color: item.color }} />
                     </div>
                     <span className="text-sm text-center">{item.name}</span>
+                    {!areOverlaysLoading && !overlayImages[item.name] && (
+                        <div className="absolute inset-0 bg-black/70 flex items-center justify-center rounded-lg">
+                           <span className="text-xs text-red-400 font-bold">UNAVAILABLE</span>
+                        </div>
+                    )}
                   </Button>
                 ))}
               </div>
@@ -571,7 +475,7 @@ const VirtualTryOn = ({
                   
                   <Button
                     onClick={handleTryOnWithUpload}
-                    disabled={!selectedClothingItem || isProcessing}
+                    disabled={!selectedClothingItem || isProcessing || areOverlaysLoading}
                     className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 py-3"
                   >
                     <Upload className="mr-2" size={20} />
@@ -580,7 +484,7 @@ const VirtualTryOn = ({
                   
                   <Button
                     onClick={() => fileInputRef.current?.click()}
-                    disabled={!selectedClothingItem}
+                    disabled={!selectedClothingItem || areOverlaysLoading}
                     variant="outline"
                     className="border-gray-600 py-3"
                   >
@@ -594,7 +498,7 @@ const VirtualTryOn = ({
                     <>
                       <Button
                         onClick={isLiveOverlay ? stopLiveOverlay : startLiveOverlay}
-                        disabled={!selectedClothingItem}
+                        disabled={!selectedClothingItem || areOverlaysLoading}
                         className={`w-full py-3 ${
                           isLiveOverlay 
                             ? 'bg-red-600 hover:bg-red-700' 
@@ -607,7 +511,7 @@ const VirtualTryOn = ({
                       
                       <Button
                         onClick={handleTryOnWithCamera}
-                        disabled={!selectedClothingItem}
+                        disabled={!selectedClothingItem || areOverlaysLoading}
                         className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 py-3"
                       >
                         <Camera className="mr-2" size={20} />
@@ -649,7 +553,6 @@ const VirtualTryOn = ({
                   <canvas
                     ref={overlayCanvasRef}
                     className="absolute inset-0 w-full h-full pointer-events-none"
-                    style={{ mixBlendMode: 'multiply' }}
                   />
                   {!isCameraReady && (
                     <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
