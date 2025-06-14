@@ -8,7 +8,7 @@ interface OpenAIResponse {
   }>;
 }
 
-interface StyleAnalysisResult {
+export interface StyleAnalysisResult {
   overallScore: number;
   feedback: string;
   specificSuggestions: string[];

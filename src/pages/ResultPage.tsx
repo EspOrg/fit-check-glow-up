@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, RotateCcw, MessageCircle, Crown, Star, Sparkles, Wand2, Glasses, Shirt, ShoppingBag, TrendingUp } from "lucide-react";
@@ -11,7 +12,7 @@ import SmartCloset from "@/components/SmartCloset";
 import EnhancedAIStyleAssistant from "@/components/EnhancedAIStyleAssistant";
 import ShoppingAssistant from "@/components/ShoppingAssistant";
 import TrendsAndSocial from "@/components/TrendsAndSocial";
-import { StyleAnalysisService } from "@/services/StyleAnalysisService";
+import { OpenAIStyleService, StyleAnalysisResult } from "@/services/OpenAIStyleService";
 
 const ResultPage = () => {
   const [searchParams] = useSearchParams();
@@ -27,7 +28,7 @@ const ResultPage = () => {
   const [showShoppingAssistant, setShowShoppingAssistant] = useState(false);
   const [showTrendsAndSocial, setShowTrendsAndSocial] = useState(false);
   const [currentImage, setCurrentImage] = useState<string>("");
-  const [styleAnalysis, setStyleAnalysis] = useState<any>(null);
+  const [styleAnalysis, setStyleAnalysis] = useState<StyleAnalysisResult | null>(null);
 
   const aesthetic = searchParams.get('aesthetic') || 'y2k';
   const beforeImage = searchParams.get('beforeImage');
@@ -46,14 +47,14 @@ const ResultPage = () => {
   const analyzeStyle = async (imageUrl: string) => {
     setIsAnalyzing(true);
     try {
-      const analysisService = StyleAnalysisService.getInstance();
+      const analysisService = OpenAIStyleService.getInstance();
       
-      let analysis;
-      if (isImprovement) {
+      let analysis: StyleAnalysisResult;
+      if (isImprovement && beforeImage && beforeScore && beforeFeedback) {
         // This is an improvement evaluation
         const originalSuggestions = JSON.parse(localStorage.getItem('originalSuggestions') || '[]');
         analysis = await analysisService.evaluateImprovement(
-          decodeURIComponent(beforeImage!),
+          decodeURIComponent(beforeImage),
           imageUrl,
           originalSuggestions,
           aesthetic
@@ -64,9 +65,9 @@ const ResultPage = () => {
           setShowComparison(true);
           localStorage.setItem('beforeAfterData', JSON.stringify({
             beforeData: {
-              image: decodeURIComponent(beforeImage!),
-              score: parseInt(beforeScore!),
-              feedback: decodeURIComponent(beforeFeedback!)
+              image: decodeURIComponent(beforeImage),
+              score: parseInt(beforeScore),
+              feedback: decodeURIComponent(beforeFeedback)
             },
             afterData: {
               image: imageUrl,
@@ -78,9 +79,9 @@ const ResultPage = () => {
         }, 2000);
       } else {
         // Regular style analysis
-        analysis = await analysisService.analyzeStyle(imageUrl, aesthetic);
+        analysis = await analysisService.analyzeStyleWithAI(imageUrl, aesthetic);
         // Store suggestions for potential future improvement
-        localStorage.setItem('originalSuggestions', JSON.stringify(analysis.suggestions));
+        localStorage.setItem('originalSuggestions', JSON.stringify(analysis.specificSuggestions));
       }
       
       setStyleAnalysis(analysis);
@@ -89,14 +90,20 @@ const ResultPage = () => {
       toast.error('Style analysis failed. Please try again.');
       // Fallback to basic analysis
       setStyleAnalysis({
-        overallScore: Math.floor(Math.random() * 4) + 6,
+        overallScore: 6,
         feedback: `Great ${aesthetic} foundation! Here are some specific improvements to try.`,
-        suggestions: [
+        specificSuggestions: [
           'Try a more fitted silhouette',
           'Add complementary accessories', 
           'Consider color coordination',
           'Experiment with layering'
-        ]
+        ],
+        improvementAreas: {
+          fit: 6,
+          color: 6,
+          accessories: 5,
+          layering: 5,
+        }
       });
     } finally {
       setIsAnalyzing(false);
@@ -104,6 +111,7 @@ const ResultPage = () => {
   };
 
   const handleStartImprovement = () => {
+    if (!styleAnalysis) return;
     // Navigate to upload with current analysis as before data
     const params = new URLSearchParams({
       aesthetic,
@@ -234,11 +242,11 @@ const ResultPage = () => {
               {styleAnalysis.feedback}
             </p>
             
-            {styleAnalysis.suggestions && styleAnalysis.suggestions.length > 0 && (
+            {styleAnalysis.specificSuggestions && styleAnalysis.specificSuggestions.length > 0 && (
               <div className="space-y-4">
                 <h4 className="text-lg font-bold text-neon-pink">Specific Action Steps:</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {styleAnalysis.suggestions.map((suggestion: string, index: number) => (
+                  {styleAnalysis.specificSuggestions.map((suggestion: string, index: number) => (
                     <div key={index} className="flex items-start space-x-3 bg-gray-800/50 p-4 rounded-lg border border-gray-700">
                       <div className="w-6 h-6 bg-neon-pink rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
                         <span className="text-white text-sm font-bold">{index + 1}</span>
@@ -368,7 +376,7 @@ const ResultPage = () => {
         originalImage={currentImage}
         aesthetic={aesthetic}
         onImageUpdated={handleImageModified}
-        aiSuggestions={styleAnalysis?.suggestions || []}
+        aiSuggestions={styleAnalysis?.specificSuggestions || []}
       />
 
       <SmartCloset

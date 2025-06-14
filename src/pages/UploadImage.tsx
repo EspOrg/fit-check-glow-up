@@ -1,10 +1,12 @@
-
 import { useState, useRef, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Camera, Upload, Crop, Check, Sparkles } from "lucide-react";
+import Cropper, { Area } from 'react-easy-crop';
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import getCroppedImg from "@/utils/cropImage";
+import { Slider } from "@/components/ui/slider";
 
 const UploadImage = () => {
   const navigate = useNavigate();
@@ -24,6 +26,10 @@ const UploadImage = () => {
   const [showCropper, setShowCropper] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
 
   const handleFileSelect = useCallback((file: File) => {
     if (!file.type.startsWith('image/')) {
@@ -49,12 +55,29 @@ const UploadImage = () => {
     cameraInputRef.current?.click();
   };
 
-  const handleCropComplete = () => {
-    // In a real app, this would handle actual cropping
-    // For demo purposes, we'll just use the original image
-    setCroppedImage(uploadedImage);
-    setShowCropper(false);
-    toast.success('Image cropped successfully!');
+  const onCropComplete = useCallback((croppedArea: Area, croppedAreaPixels: Area) => {
+    setCroppedAreaPixels(croppedAreaPixels);
+  }, []);
+
+  const handleCropComplete = async () => {
+    if (uploadedImage && croppedAreaPixels) {
+      try {
+        const croppedImageBlob = await getCroppedImg(
+          uploadedImage,
+          croppedAreaPixels
+        );
+        const reader = new FileReader();
+        reader.addEventListener('load', () => {
+          setCroppedImage(reader.result as string);
+        });
+        reader.readAsDataURL(croppedImageBlob);
+        setShowCropper(false);
+        toast.success('Image cropped successfully!');
+      } catch (e) {
+        console.error(e);
+        toast.error('Failed to crop image.');
+      }
+    }
   };
 
   const handleAnalyze = async () => {
@@ -62,16 +85,9 @@ const UploadImage = () => {
 
     setIsLoading(true);
     
-    // Simulate AI analysis
-    await new Promise(resolve => setTimeout(resolve, 3000));
+    let resultUrl = `/result?aesthetic=${aesthetic}&image=${encodeURIComponent(croppedImage)}`;
     
-    // Generate random score for demo
-    const score = Math.floor(Math.random() * 4) + 7; // Score between 7-10
-    
-    // Build URL with comparison parameters if this is an improvement attempt
-    let resultUrl = `/result?aesthetic=${aesthetic}&score=${score}&image=${encodeURIComponent(croppedImage)}`;
-    
-    if (isImprovement) {
+    if (isImprovement && beforeImage && beforeScore && beforeFeedback) {
       resultUrl += `&beforeImage=${beforeImage}&beforeScore=${beforeScore}&beforeFeedback=${beforeFeedback}`;
     }
     
@@ -205,23 +221,36 @@ const UploadImage = () => {
         )}
 
         {/* Cropping Interface */}
-        {showCropper && (
+        {showCropper && uploadedImage && (
           <div className="animate-slide-up">
             <div className="bg-dark-card rounded-3xl p-6 neon-border">
               <h3 className="text-2xl font-bold text-white mb-4 text-center">Crop Your Image</h3>
-              <div className="relative rounded-xl overflow-hidden mb-6">
-                <img 
-                  src={uploadedImage} 
-                  alt="Image to crop" 
-                  className="w-full h-80 object-cover"
+              <div className="relative rounded-xl overflow-hidden mb-6 bg-black h-96">
+                <Cropper
+                  image={uploadedImage}
+                  crop={crop}
+                  zoom={zoom}
+                  aspect={3 / 4}
+                  onCropChange={setCrop}
+                  onZoomChange={setZoom}
+                  onCropComplete={onCropComplete}
                 />
-                {/* Cropping overlay */}
-                <div className="absolute inset-4 border-2 border-neon-pink rounded-lg bg-transparent">
-                  <div className="absolute inset-0 bg-black/20"></div>
+              </div>
+
+              <div className="px-4 space-y-4">
+                <div className="flex items-center space-x-2">
+                  <span className="text-white text-sm">Zoom</span>
+                  <Slider
+                    value={[zoom]}
+                    min={1}
+                    max={3}
+                    step={0.1}
+                    onValueChange={(value) => setZoom(value[0])}
+                  />
                 </div>
               </div>
               
-              <div className="flex space-x-4">
+              <div className="flex space-x-4 mt-6">
                 <Button
                   onClick={handleCropComplete}
                   className="flex-1 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-emerald-600 hover:to-green-500 text-white font-bold py-3 rounded-xl"
