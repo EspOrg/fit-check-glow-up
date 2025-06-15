@@ -1,6 +1,5 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import Replicate from "https://esm.sh/replicate@0.25.2"
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -14,14 +13,10 @@ serve(async (req) => {
   }
 
   try {
-    const REPLICATE_API_KEY = Deno.env.get('REPLICATE_API_KEY')
-    if (!REPLICATE_API_KEY) {
-      throw new Error('REPLICATE_API_KEY is not set in Supabase secrets.')
+    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY')
+    if (!OPENAI_API_KEY) {
+      throw new Error('OPENAI_API_KEY is not set in Supabase secrets.')
     }
-
-    const replicate = new Replicate({
-      auth: REPLICATE_API_KEY,
-    })
 
     const { prompt: itemPrompt } = await req.json()
 
@@ -35,35 +30,36 @@ serve(async (req) => {
       )
     }
 
-    const fullPrompt = `${itemPrompt}, clothing item, high quality, photorealistic, on a transparent background, for virtual try-on, fashion photography`
+    const fullPrompt = `${itemPrompt}, clothing item, high quality, photorealistic, on a transparent background, for virtual try-on, fashion photography, clean edges`
 
-    console.log("Generating image with prompt:", fullPrompt)
-    const output = await replicate.run(
-      "black-forest-labs/flux-schnell",
-      {
-        input: {
-          prompt: fullPrompt,
-          go_fast: true,
-          megapixels: "1",
-          num_outputs: 1,
-          aspect_ratio: "1:1",
-          output_format: "png",
-          output_quality: 90,
-          num_inference_steps: 8
-        }
-      }
-    )
+    console.log("Generating image with OpenAI using prompt:", fullPrompt)
+    
+    const response = await fetch('https://api.openai.com/v1/images/generations', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${OPENAI_API_KEY}`,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            model: 'gpt-image-1',
+            prompt: fullPrompt,
+            n: 1,
+            size: '1024x1024',
+            output_format: 'png',
+            background: 'transparent',
+            quality: 'high',
+        })
+    });
 
-    const imageUrl = (output as string[])[0];
-
-    const imageResponse = await fetch(imageUrl);
-    if (!imageResponse.ok) {
-        throw new Error(`Failed to fetch generated image from Replicate: ${imageResponse.statusText}`);
+    if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`OpenAI Image Generation API error: ${response.status}`, errorText);
+        throw new Error(`OpenAI Image Generation API error: ${response.status} - ${errorText}`);
     }
-    const imageBuffer = await imageResponse.arrayBuffer();
-    const base64 = btoa(String.fromCharCode(...new Uint8Array(imageBuffer)));
-    const mimeType = imageResponse.headers.get('content-type') || 'image/png';
-    const dataUrl = `data:${mimeType};base64,${base64}`;
+
+    const data = await response.json();
+    const base64 = data.data[0].b64_json;
+    const dataUrl = `data:image/png;base64,${base64}`;
 
 
     return new Response(JSON.stringify({ imageUrl: dataUrl }), {
