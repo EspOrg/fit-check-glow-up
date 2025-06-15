@@ -3,6 +3,7 @@ import { Camera, Upload, Wand2, RotateCcw, Download, Sparkles, Loader2 } from "l
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 interface VirtualTryOnProps {
   isOpen: boolean;
@@ -30,6 +31,7 @@ const VirtualTryOn = ({
   const [isLiveOverlay, setIsLiveOverlay] = useState(false);
   const [overlayImages, setOverlayImages] = useState<{ [key: string]: HTMLImageElement }>({});
   const [areOverlaysLoading, setAreOverlaysLoading] = useState(true);
+  const [generatedImageCache, setGeneratedImageCache] = useState<{ [key: string]: string }>({});
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -68,27 +70,50 @@ const VirtualTryOn = ({
     const aestheticKey = aesthetic as keyof typeof baseItems;
     const itemsForAesthetic = baseItems[aestheticKey] || baseItems.y2k;
     
-    return itemsForAesthetic.map(item => ({
-        ...item,
-        imageUrl: `https://placehold.co/256x256/${item.color.substring(1)}/FFFFFF.png?text=${encodeURIComponent(item.name)}`
-    }));
+    return itemsForAesthetic;
   }, [aesthetic]);
 
   useEffect(() => {
     const loadImages = async () => {
       setAreOverlaysLoading(true);
-      toast.info('Loading virtual clothing items...');
+      setOverlayImages({});
+      toast.info('Generating virtual clothing items with AI...');
       
       const imagePromises = clothingItems.map(item => {
-        return new Promise<{ name: string; image: HTMLImageElement | null }>((resolve) => {
-          const img = new Image();
-          img.crossOrigin = "anonymous";
-          img.src = item.imageUrl;
-          img.onload = () => resolve({ name: item.name, image: img });
-          img.onerror = () => {
-            console.warn(`Could not load overlay image: ${item.imageUrl}`);
-            resolve({ name: item.name, image: null }); 
-          };
+        return new Promise<{ name: string; image: HTMLImageElement | null }>(async (resolve) => {
+          try {
+            let imageUrl = generatedImageCache[item.name];
+
+            if (!imageUrl) {
+              console.log(`Generating image for ${item.name}`);
+              toast.info(`AI is creating: ${item.name}...`);
+              const { data, error } = await supabase.functions.invoke('generate-clothing-image', {
+                body: { prompt: item.name },
+              });
+
+              if (error) throw new Error(error.message);
+              if (data.error) throw new Error(data.error);
+
+              imageUrl = data.imageUrl;
+              setGeneratedImageCache(prevCache => ({...prevCache, [item.name]: imageUrl}));
+            } else {
+              console.log(`Using cached image for ${item.name}`);
+            }
+            
+            const img = new Image();
+            img.crossOrigin = "anonymous";
+            img.src = imageUrl;
+            img.onload = () => resolve({ name: item.name, image: img });
+            img.onerror = () => {
+              console.warn(`Could not load generated image for: ${item.name}`);
+              resolve({ name: item.name, image: null }); 
+            };
+          } catch (error) {
+            console.error(`Failed to generate or load image for ${item.name}:`, error);
+            const errorMessage = error instanceof Error ? error.message : "Unknown error";
+            toast.error(`Could not generate image for ${item.name}: ${errorMessage.substring(0, 100)}`);
+            resolve({ name: item.name, image: null });
+          }
         });
       });
 
@@ -102,17 +127,19 @@ const VirtualTryOn = ({
 
       setOverlayImages(imagesMap);
       setAreOverlaysLoading(false);
-      if (Object.keys(imagesMap).length > 0) {
-        toast.success('Clothing items are ready to try on!');
+      if (Object.keys(imagesMap).length === clothingItems.length) {
+        toast.success('AI-generated clothing is ready to try on!');
+      } else if (Object.keys(imagesMap).length > 0) {
+        toast.warning('Some clothing items could not be generated.');
       } else {
-        toast.error('Could not load any clothing items. Please check the console for errors.');
+        toast.error('Could not generate any clothing items. Please check the console for errors.');
       }
     };
 
     if (clothingItems.length > 0) {
       loadImages();
     }
-  }, [clothingItems]);
+  }, [clothingItems, generatedImageCache]);
 
   const startCamera = async () => {
     try {
